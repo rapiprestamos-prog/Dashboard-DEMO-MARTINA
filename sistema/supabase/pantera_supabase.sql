@@ -274,6 +274,9 @@ grant usage on schema public to authenticated;
 revoke insert, update, delete on public.ma_carpetas, public.ma_archivos, public.ma_usuarios, public.ma_ediciones, public.ma_edicion_items from anon, authenticated;
 revoke all on public.ma_carpetas, public.ma_archivos, public.ma_usuarios, public.ma_ediciones, public.ma_edicion_items from anon;
 grant select on public.ma_carpetas, public.ma_archivos, public.ma_usuarios, public.ma_ediciones, public.ma_edicion_items to authenticated;
+-- la Edge Function pantera-usuarios trabaja con service_role (proyectos nuevos no le dan permisos por defecto)
+grant usage on schema public to service_role;
+grant select, insert, update, delete on public.ma_carpetas, public.ma_archivos, public.ma_usuarios, public.ma_ediciones, public.ma_edicion_items to service_role;
 
 drop policy if exists "ma_carpetas_leer"   on public.ma_carpetas;
 drop policy if exists "ma_archivos_leer"   on public.ma_archivos;
