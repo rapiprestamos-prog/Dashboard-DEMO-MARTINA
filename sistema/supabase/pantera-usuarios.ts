@@ -4,7 +4,7 @@
 //
 //  Acciones (POST JSON {accion, ...}):
 //    listar                                   → usuarios con su rol, estado y último ingreso
-//    crear   {email, password, nombre, rol}   → crea la cuenta (confirmada) y su permiso
+//    crear   {email, password, nombre, rol, modulos[]} → crea la cuenta (confirmada), su rol y sus módulos
 //    clave   {email, password}                → cambia la contraseña
 //    eliminar {email}                         → borra la cuenta y su permiso
 //  (Cambiar rol o activar/desactivar se hace con la función de base ma_usuario_guardar.)
@@ -76,12 +76,13 @@ Deno.serve(async (req) => {
       const password = String(body.password ?? "");
       const nombre = String(body.nombre ?? "").trim() || null;
       const rol = String(body.rol ?? "lector");
+      const modulos = Array.isArray(body.modulos) ? body.modulos.map(String) : ["martina"];
       if (!emailOk(email)) return json({ error: "Correo no válido" }, 400);
       if (password.length < 8) return json({ error: "La contraseña debe tener al menos 8 caracteres" }, 400);
       if (!ROLES.includes(rol)) return json({ error: "Rol no válido" }, 400);
       const { error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { nombre } });
       if (error && !/already|registered|exists/i.test(error.message)) throw error;
-      const { error: e2 } = await admin.from("ma_usuarios").upsert({ email, nombre, rol, activo: true, modulos: ["martina"] }, { onConflict: "email" });
+      const { error: e2 } = await admin.from("ma_usuarios").upsert({ email, nombre, rol, activo: true, modulos }, { onConflict: "email" });
       if (e2) throw e2;
       return json({ ok: true, yaExistia: !!error });
     }

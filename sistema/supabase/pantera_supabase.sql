@@ -5,10 +5,11 @@
 --  Pegar completo en: Supabase → SQL Editor → Run.
 --  Se puede correr más de una vez (no borra datos).
 --
---  Roles:
---    admin   crea usuarios, maneja permisos, revierte ediciones y quita meses
---    editor  sube información
---    lector  solo ve los reportes
+--  Roles (uno por usuario) + módulos asignados (lista por usuario):
+--    admin   crea usuarios, maneja permisos, revierte ediciones y quita meses (ve todos los módulos)
+--    editor  sube información en sus módulos
+--    lector  solo ve los reportes de sus módulos
+--  Un usuario solo ve las carpetas y archivos de los módulos que tiene asignados.
 --
 --  Regla de oro: el navegador NUNCA escribe directo en las tablas.
 --  Toda escritura pasa por funciones de la base (security definer) que
@@ -103,6 +104,18 @@ language sql stable security definer set search_path = public as $$
   select u.rol from public.ma_usuarios u where lower(u.email) = public.ma_email() and u.activo
 $$;
 
+-- Módulos asignados al usuario conectado
+create or replace function public.ma_modulos() returns text[]
+language sql stable security definer set search_path = public as $$
+  select coalesce(u.modulos,'{}') from public.ma_usuarios u where lower(u.email) = public.ma_email() and u.activo
+$$;
+
+-- ¿Tiene acceso a este módulo? (la administradora, a todos)
+create or replace function public.ma_tiene_modulo(p_modulo text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce(public.ma_rol() = 'admin' or p_modulo = any(public.ma_modulos()), false)
+$$;
+
 create or replace function public.ma_es_usuario() returns boolean
 language sql stable security definer set search_path = public as $$ select public.ma_rol() is not null $$;
 
@@ -122,6 +135,7 @@ returns bigint language plpgsql security definer set search_path = public as $$
 declare v_id bigint;
 begin
   if not public.ma_es_editor() then raise exception 'Sin permiso: se necesita rol editor o administradora'; end if;
+  if not public.ma_tiene_modulo((select modulo from public.ma_carpetas where id = p_carpeta)) then raise exception 'Sin permiso: no tienes asignado este módulo'; end if;
   insert into public.ma_ediciones (carpeta_id, tipo, usuario, descripcion, anio, mes)
   values (p_carpeta, 'carga', public.ma_email(), p_descripcion, p_anio, p_mes) returning id into v_id;
   return v_id;
@@ -269,13 +283,17 @@ drop policy if exists "ma_usuarios_leer"   on public.ma_usuarios;
 drop policy if exists "ma_ediciones_leer"  on public.ma_ediciones;
 drop policy if exists "ma_items_leer"      on public.ma_edicion_items;
 
-create policy "ma_carpetas_leer"  on public.ma_carpetas      for select to authenticated using (public.ma_es_usuario());
-create policy "ma_archivos_leer"  on public.ma_archivos      for select to authenticated using (public.ma_es_usuario());
+-- solo las carpetas y archivos de los módulos asignados
+create policy "ma_carpetas_leer"  on public.ma_carpetas      for select to authenticated using (public.ma_tiene_modulo(modulo));
+create policy "ma_archivos_leer"  on public.ma_archivos      for select to authenticated
+  using (exists (select 1 from public.ma_carpetas c where c.id = carpeta_id and public.ma_tiene_modulo(c.modulo)));
 -- cada quien ve su propia fila; la administradora ve a todos
 create policy "ma_usuarios_leer"  on public.ma_usuarios      for select to authenticated using (lower(email) = public.ma_email() or public.ma_es_admin());
 -- el historial lo ven la administradora y los editores
-create policy "ma_ediciones_leer" on public.ma_ediciones     for select to authenticated using (public.ma_es_editor());
-create policy "ma_items_leer"     on public.ma_edicion_items for select to authenticated using (public.ma_es_editor());
+create policy "ma_ediciones_leer" on public.ma_ediciones     for select to authenticated
+  using (public.ma_es_editor() and exists (select 1 from public.ma_carpetas c where c.id = carpeta_id and public.ma_tiene_modulo(c.modulo)));
+create policy "ma_items_leer"     on public.ma_edicion_items for select to authenticated
+  using (public.ma_es_editor() and exists (select 1 from public.ma_ediciones e join public.ma_carpetas c on c.id = e.carpeta_id where e.id = edicion_id and public.ma_tiene_modulo(c.modulo)));
 
 -- Tabla vieja de la versión anterior (si existe): solo lectura
 do $$ begin
@@ -286,7 +304,7 @@ do $$ begin
   end if;
 end $$;
 
-grant execute on function public.ma_email(), public.ma_rol(), public.ma_es_usuario(), public.ma_es_editor(), public.ma_es_admin() to authenticated;
+grant execute on function public.ma_email(), public.ma_rol(), public.ma_modulos(), public.ma_tiene_modulo(text), public.ma_es_usuario(), public.ma_es_editor(), public.ma_es_admin() to authenticated;
 grant execute on function public.ma_edicion_iniciar(bigint, text, text, text)  to authenticated;
 grant execute on function public.ma_edicion_aplicar(bigint, text, jsonb)       to authenticated;
 grant execute on function public.ma_edicion_cerrar(bigint)                     to authenticated;
@@ -313,5 +331,5 @@ values ('martina', 'Pantera Reportería — Martina', '/PruebaDashboard', 'jrome
 on conflict (modulo, ruta) do nothing;
 
 -- Primera administradora (las demás cuentas se crean desde el dashboard, pestaña Usuarios)
-insert into public.ma_usuarios (email, nombre, rol, activo) values ('jromero@rapiprestamos.net', null, 'admin', true)
+insert into public.ma_usuarios (email, nombre, rol, activo, modulos) values ('jromero@rapiprestamos.net', null, 'admin', true, '{martina}')
 on conflict (email) do update set rol = 'admin', activo = true;

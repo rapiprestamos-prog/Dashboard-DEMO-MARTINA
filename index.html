@@ -278,7 +278,7 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
 .items{width:100%;border-collapse:collapse;font-size:12px}
 .items td,.items th{padding:4px 8px;border-bottom:1px solid var(--grid);text-align:left;vertical-align:top}
 .items th{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-.newuser{display:grid;grid-template-columns:2fr 1.4fr 1.2fr 110px auto;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.newuser{display:grid;grid-template-columns:2fr 1.4fr 1.2fr 110px auto auto;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)}
 @media (max-width:900px){.newuser{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -424,6 +424,7 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
           <input class="inp sm" type="text" id="nuNombre" placeholder="Nombre">
           <input class="inp sm" type="password" id="nuPass" placeholder="Contraseña (mín. 8)" minlength="8" required autocomplete="new-password">
           <select class="inp sm" id="nuRol"><option value="lector">Lector</option><option value="editor">Editor</option><option value="admin">Administradora</option></select>
+          <span id="nuMods" class="lbl" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"></span>
           <button class="btn sm pri" type="submit" id="btnCrear">＋ Crear usuario</button>
         </form>
         <div class="tbl-wrap" id="usrBox"></div>
@@ -471,11 +472,11 @@ const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 
 /* ============================ navegación ============================ */
 function mostrar(v){ $("viewLogin").classList.toggle("hidden",v!=="login"); $("viewHome").classList.toggle("hidden",v!=="home"); $("viewModulo").classList.toggle("hidden",v!=="modulo"); document.body.classList.toggle("enModulo",v==="modulo"); }
-$("cardMartina").onclick = () => { if(SB_ON){ if(!SB_USER){ mostrar("login"); return; } mostrar("modulo"); if(!SB_CARGADO) sbCargar(); } else { mostrar("modulo"); conectarAuto(true); } };
+$("cardMartina").onclick = () => { if(SB_ON){ if(!SB_USER){ mostrar("login"); return; } if(!tieneModulo("martina")) return; mostrar("modulo"); if(!SB_CARGADO) sbCargar(); } else { mostrar("modulo"); conectarAuto(true); } };
 $("btnVolver").onclick = () => mostrar("home");
 $("buscadorModulos").oninput = e => {
   const q=norm(e.target.value.trim()); const c=$("cardMartina");
-  const ok=!q||norm(c.dataset.tags+" "+c.textContent).includes(q);
+  const ok=(!q||norm(c.dataset.tags+" "+c.textContent).includes(q))&&!c.classList.contains("hidden");
   c.style.display=ok?"":"none"; $("homeCount").textContent=(ok?1:0)+" módulo"+(ok?"":"s");
 };
 const TABS=["lector","pantera","historial","usuarios"];
@@ -872,7 +873,10 @@ function enviarPantera(files){
 const SB_ON = /^https?:\/\//.test(SUPABASE_URL) && SUPABASE_ANON.length>20 && !!window.supabase;
 const SB = SB_ON ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON,
   {auth:{persistSession:false, autoRefreshToken:true, detectSessionInUrl:false}}) : null;
-let SB_USER=null, SB_ROL=null, SB_CARPETA=null, SB_ARCH=[], SB_CARGADO=false, SB_TAB_PREF="lector";
+let SB_USER=null, SB_ROL=null, SB_MODS=[], SB_CARPETA=null, SB_ARCH=[], SB_CARGADO=false, SB_TAB_PREF="lector";
+// Módulos del dashboard (id = valor en ma_usuarios.modulos y ma_carpetas.modulo)
+const MODULOS=[{id:"martina",nombre:"Pantera Reportería — Martina",card:"cardMartina"}];
+const tieneModulo=id=>esAdmin()||SB_MODS.includes(id);
 const ROL_TXT={admin:"Administradora",editor:"Editor",lector:"Lector"};
 const esEditor=()=>SB_ROL==="admin"||SB_ROL==="editor";
 const esAdmin=()=>SB_ROL==="admin";
@@ -897,6 +901,11 @@ function aplicarRol(){
     $("rolChip").textContent=ROL_TXT[SB_ROL]||SB_ROL;
     $("homeUserTxt").innerHTML=`${esc(SB_USER.email)} <span class="rolchip">${esc(ROL_TXT[SB_ROL]||SB_ROL)}</span>`;
   }
+  // en el inicio solo aparecen los módulos asignados al usuario
+  let n=0; MODULOS.forEach(m=>{ const ok=!SB_ON||!dentro||tieneModulo(m.id); $(m.card).classList.toggle("hidden",!ok); if(ok) n++; });
+  $("homeCount").textContent=n+" módulo"+(n===1?"":"s"); $("catReporteria").querySelector(".pill").textContent=n+" módulo"+(n===1?"":"s");
+  let v=$("sinModulos"); if(!v){ v=document.createElement("div"); v.id="sinModulos"; v.className="empty"; v.innerHTML="<div class='big'>🔒</div><b>No tienes módulos asignados</b>Pídele a la administradora que te asigne uno."; $("catReporteria").appendChild(v); }
+  v.classList.toggle("hidden",!(SB_ON&&dentro&&n===0));
   const t=document.querySelector(`.mtab[data-tab="${TAB}"]`);
   if(t&&t.classList.contains("hidden")) setTab("lector");
 }
@@ -905,13 +914,13 @@ async function sbIniciar(){
   const {data:{session}}=await SB.auth.getSession();
   if(!session){ mostrar("login"); return; }
   SB_USER=session.user;
-  // rol activo en ma_usuarios (si no tiene o está desactivado, no entra)
-  const {data:rol,error}=await SB.rpc("ma_rol");
-  if(error||!rol){
+  // rol y módulos en ma_usuarios (si no tiene fila o está desactivado, no entra)
+  const {data:yo,error}=await SB.from("ma_usuarios").select("rol,modulos,activo").eq("email",SB_USER.email.toLowerCase()).maybeSingle();
+  if(error||!yo||!yo.activo){
     await cerrarSesion(error?"No se pudo validar tu acceso: "+error.message:"Tu usuario no tiene acceso al dashboard o está desactivado. Pídele acceso a la administradora.");
     return;
   }
-  SB_ROL=rol;
+  SB_ROL=yo.rol; SB_MODS=yo.modulos||[];
   borrarDatosPantera(); reiniciarPantera(true);
   aplicarRol(); actividad(); setTab(SB_TAB_PREF);
   mostrar("home");
@@ -927,7 +936,7 @@ $("loginForm").onsubmit=async e=>{
 // Cierra la sesión y borra todo lo que quedó en pantalla y en el navegador
 async function cerrarSesion(motivo){
   const habia=!!SB_USER;
-  SB_USER=null; SB_ROL=null; SB_CARPETA=null; SB_ARCH=[]; SB_CARGADO=false; SB_SUBIDA_HECHA=false;
+  SB_USER=null; SB_ROL=null; SB_MODS=[]; SB_CARPETA=null; SB_ARCH=[]; SB_CARGADO=false; SB_SUBIDA_HECHA=false;
   try{ await SB.auth.signOut(); }catch(e){}
   DIR_HANDLE=null; ARCHIVOS=[]; ARBOL={}; SEL=null; LIBRO=null; ABIERTOS.clear();
   $("tree").innerHTML=""; $("viewer").innerHTML=vacioViewer(); $("cntArchivos").textContent="0";
@@ -1022,13 +1031,26 @@ async function sbCargar(){
   sbPantalla("modulo");
   AUTO=true; document.body.classList.add("modoAuto");
   DIR_HANDLE=sbDirHandle(SB_CARPETA, SB_ARCH);
-  $("btnActualizar").disabled=false; $("btnActualizar").onclick=sbCargar;
+  $("btnActualizar").disabled=false; $("btnActualizar").onclick=sbActualizar;
   await escanear(false);
   sbHdr();
   llenarQuitarMes();
   if(TAB==="historial") cargarHistorial();
   await sbRevisarEditor();
 }
+// Actualizar: si el usuario es editor/admin y este navegador ya puede leer su carpeta, primero sube lo nuevo (y da de baja lo borrado)
+async function sbActualizar(){
+  if(esEditor()&&!SB_SUBIENDO){
+    try{
+      const auto=await detectarAuto();
+      if(auto&&!esMesNombre(auto.name)&&!esAnio(auto.name)){ await sbSubir(auto); return; }
+      const h=await leerHandle();
+      if(h&&!esMesNombre(h.name)&&!esAnio(h.name)&&await h.queryPermission({mode:"read"})==="granted"){ await sbSubir(h); if(!SB_ULT_CAMBIOS) await sbCargar(); return; }
+    }catch(e){}
+  }
+  await sbCargar();
+}
+let SB_ULT_CAMBIOS=false;
 function sbHdr(){
   if(!SB_USER||!SB_CARPETA) return;
   const ult=SB_ARCH.reduce((m,a)=>Math.max(m,a.sincronizado?Date.parse(a.sincronizado):0),0);
@@ -1142,7 +1164,8 @@ async function sbSubir(h){
   }catch(e){ errores.push(e.message); }
   if(ed!=null){ try{ await rpc("ma_edicion_cerrar",{p_edicion:ed}); }catch(e){ errores.push("cerrar edición: "+e.message); } }
   SB_SUBIENDO=false; $("btnSubir").disabled=false;
-  if(nuevos||cambiados||quitados) await sbCargar();
+  SB_ULT_CAMBIOS=!!(nuevos||cambiados||quitados);
+  if(SB_ULT_CAMBIOS) await sbCargar();
   if(errores.length) banner("Algunos archivos no se pudieron subir: "+esc(errores.slice(0,3).join(" · ")),"err");
   else banner(nuevos||cambiados||quitados?`✓ Base actualizada (edición #${ed}): ${nuevos} nuevo(s), ${cambiados} cambiado(s), ${quitados} quitado(s).`:"✓ La base ya estaba al día con tu carpeta.","ok");
 }
@@ -1253,17 +1276,20 @@ async function cargarUsuarios(){
   }
   pintarUsuarios();
 }
+const modsHTML=(sel,pref)=>MODULOS.map(m=>`<label class="lbl" style="white-space:nowrap"><input type="checkbox" data-mod="${m.id}"${(sel||[]).includes(m.id)?" checked":""}> ${esc(m.nombre)}</label>`).join(" ");
 function pintarUsuarios(){
   const yo=SB_USER.email.toLowerCase();
+  $("nuMods").innerHTML=modsHTML(["martina"]);
   const filas=USRS.map((u,i)=>`<tr data-i="${i}">
     <td>${esc(u.email)}${u.email===yo?` <span class="tag">tú</span>`:""}${u.cuenta===false?` <span class="tag quitar_mes" title="Tiene permiso pero no cuenta para entrar">sin cuenta</span>`:""}</td>
     <td><input class="inp sm" data-f="nombre" value="${esc(u.nombre||"")}" style="width:100%;min-width:140px"></td>
     <td><select class="inp sm" data-f="rol">${["admin","editor","lector"].map(r=>`<option value="${r}"${u.rol===r?" selected":""}>${ROL_TXT[r]}</option>`).join("")}${u.rol?"":`<option value="" selected>— sin permiso —</option>`}</select></td>
+    <td>${u.rol==="admin"?`<span class="tag ok">Todos</span>`:modsHTML(u.modulos)}</td>
     <td class="nw"><label><input type="checkbox" data-f="activo"${u.activo?" checked":""}> Activo</label></td>
     <td class="nw">${u.ultimo_ingreso?fFecha(Date.parse(u.ultimo_ingreso)):"—"}</td>
     <td class="nw"><button class="btn sm pri" data-a="guardar">Guardar</button>
       ${USR_FN_OK?`<button class="btn sm" data-a="clave">🔑 Clave</button>${u.email!==yo?`<button class="btn sm danger" data-a="eliminar">Eliminar</button>`:""}`:""}</td></tr>`).join("");
-  $("usrBox").innerHTML=USRS.length?`<table class="x"><thead><tr><th>Correo</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Último ingreso</th><th></th></tr></thead><tbody>${filas}</tbody></table>`
+  $("usrBox").innerHTML=USRS.length?`<table class="x"><thead><tr><th>Correo</th><th>Nombre</th><th>Rol</th><th>Módulos</th><th>Estado</th><th>Último ingreso</th><th></th></tr></thead><tbody>${filas}</tbody></table>`
     :`<div class="empty"><b>Sin usuarios</b>Crea el primero con el formulario de arriba.</div>`;
   $("formNuevo").querySelectorAll("input,select,button").forEach(x=>x.disabled=!USR_FN_OK);
   $("usrBox").querySelectorAll("button[data-a]").forEach(b=>b.onclick=()=>accionUsuario(b.dataset.a,b.closest("tr")));
@@ -1273,7 +1299,9 @@ async function accionUsuario(a,tr){
   try{
     if(a==="guardar"){
       const rol=val("rol").value; if(!rol) throw new Error("Elige un rol.");
-      await rpc("ma_usuario_guardar",{p_email:u.email,p_nombre:val("nombre").value.trim()||null,p_rol:rol,p_activo:val("activo").checked,p_modulos:u.modulos&&u.modulos.length?u.modulos:["martina"]});
+      const mods=[...tr.querySelectorAll("[data-mod]:checked")].map(x=>x.dataset.mod);
+      if(rol!=="admin"&&!mods.length) throw new Error("Marca al menos un módulo.");
+      await rpc("ma_usuario_guardar",{p_email:u.email,p_nombre:val("nombre").value.trim()||null,p_rol:rol,p_activo:val("activo").checked,p_modulos:rol==="admin"?MODULOS.map(m=>m.id):mods});
       banner(`✓ Permisos de <b>${esc(u.email)}</b> guardados.`,"ok");
     }else if(a==="clave"){
       const p=await dialogo({titulo:"Cambiar contraseña",texto:`Nueva contraseña para <b>${esc(u.email)}</b>.`,ok:"Cambiar",campo:{tipo:"password",ph:"Mínimo 8 caracteres",min:8}});
@@ -1294,7 +1322,9 @@ $("formNuevo").onsubmit=async e=>{
   const email=$("nuEmail").value.trim().toLowerCase();
   $("btnCrear").disabled=true;
   try{
-    const r=await fnUsuarios({accion:"crear",email,nombre:$("nuNombre").value.trim(),password:$("nuPass").value,rol:$("nuRol").value});
+    const mods=[...$("nuMods").querySelectorAll("[data-mod]:checked")].map(x=>x.dataset.mod);
+    if($("nuRol").value!=="admin"&&!mods.length) throw new Error("Marca al menos un módulo.");
+    const r=await fnUsuarios({accion:"crear",email,nombre:$("nuNombre").value.trim(),password:$("nuPass").value,rol:$("nuRol").value,modulos:$("nuRol").value==="admin"?MODULOS.map(m=>m.id):mods});
     banner(r&&r.yaExistia?`La cuenta <b>${esc(email)}</b> ya existía: se le asignó el rol.`:`✓ Usuario <b>${esc(email)}</b> creado.`,"ok");
     $("formNuevo").reset();
   }catch(err){ banner("No se pudo crear el usuario: "+esc(err.message),"err"); }
