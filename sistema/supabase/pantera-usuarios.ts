@@ -30,9 +30,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Método no permitido" }, 405);
 
-  const url = Deno.env.get("SUPABASE_URL")!;
-  const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!url || !anon || !service) return json({ error: "A la función le falta SUPABASE_URL, SUPABASE_ANON_KEY o SUPABASE_SERVICE_ROLE_KEY" }, 500);
   const authHeader = req.headers.get("Authorization") ?? "";
 
   // 1) ¿Quién llama? (con el token del propio usuario, respetando RLS)
@@ -41,10 +42,12 @@ Deno.serve(async (req) => {
   if (eu || !u?.user?.email) return json({ error: "Sesión no válida" }, 401);
   const yo = u.user.email.toLowerCase();
 
-  // 2) Solo la administradora activa puede usar esta función
+  // 2) Solo la administradora activa puede usar esta función.
+  //    Se pregunta a la base con el token del propio usuario (función ma_es_admin), igual que en el dashboard.
+  const { data: esAdmin, error: ea } = await comoUsuario.rpc("ma_es_admin");
+  if (ea) return json({ error: "No se pudo revisar el rol (" + ea.message + "). ¿Se corrió pantera_supabase.sql?" }, 500);
+  if (esAdmin !== true) return json({ error: "Solo la administradora puede manejar usuarios (" + yo + " no figura como admin activa en ma_usuarios)" }, 403);
   const admin = createClient(url, service, { auth: { persistSession: false } });
-  const { data: perfil } = await admin.from("ma_usuarios").select("rol, activo").eq("email", yo).maybeSingle();
-  if (!perfil || perfil.rol !== "admin" || !perfil.activo) return json({ error: "Solo la administradora puede manejar usuarios" }, 403);
 
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { return json({ error: "Cuerpo inválido" }, 400); }

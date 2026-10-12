@@ -1278,8 +1278,9 @@ async function fnUsuarios(body){
   if(error){
     let msg=error.message;
     try{ const j=await error.context.json(); if(j&&j.error) msg=j.error; }catch(e){}
-    if(/Failed to send|not found|404/i.test(msg)) msg="La función pantera-usuarios no está publicada en Supabase (ver GUIA_SUPABASE.txt, paso 2).";
-    throw new Error(msg);
+    const noPublicada=/Failed to send|not found|404/i.test(msg);
+    if(noPublicada) msg="La función pantera-usuarios no está publicada en Supabase (ver GUIA_SUPABASE.txt, paso 2).";
+    const err=new Error(msg); err.noPublicada=noPublicada; throw err;
   }
   if(data&&data.error) throw new Error(data.error);
   return data;
@@ -1295,7 +1296,7 @@ async function cargarUsuarios(){
     const {data,error}=await SB.from("ma_usuarios").select("*").order("email");
     if(error){ box.innerHTML=`<div class="empty"><div class="big">⚠️</div><b>No se pudieron leer los usuarios</b>${esc(error.message)}</div>`; return; }
     USRS=(data||[]).map(u=>({...u,cuenta:null,ultimo_ingreso:null}));
-    banner(esc(e.message)+" Mientras tanto se pueden cambiar roles, pero no crear cuentas ni contraseñas.","err");
+    banner(esc(e.message)+(e.noPublicada?" Mientras tanto se pueden cambiar roles, pero no crear cuentas ni contraseñas.":""),"err");
   }
   pintarUsuarios();
 }
