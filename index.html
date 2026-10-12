@@ -846,9 +846,11 @@ window.addEventListener("message",ev=>{
 });
 let P_PENDIENTE=null;
 async function generarPantera(forzar){
-  if(!ARCHIVOS.length) return;
   const sig=firma();
   if(!forzar && sig===lsGet("martina_pantera_sig")) return;   // ya está armada con estos mismos archivos
+  // Siempre se arma desde cero con los archivos que hay ahora: si se borró un mes, desaparece del reporte
+  borrarDatosPantera(); reiniciarPantera(true);
+  if(!ARCHIVOS.length){ lsSet("martina_pantera_sig",sig); return; }
   P_SIG=sig;
   pCargando(true,"Leyendo "+ARCHIVOS.length+" archivo(s) de la carpeta…");
   const files=[];
@@ -1043,10 +1045,19 @@ async function sbActualizar(){
   if(esEditor()&&!SB_SUBIENDO){
     try{
       const auto=await detectarAuto();
-      if(auto&&!esMesNombre(auto.name)&&!esAnio(auto.name)){ await sbSubir(auto); return; }
-      const h=await leerHandle();
-      if(h&&!esMesNombre(h.name)&&!esAnio(h.name)&&await h.queryPermission({mode:"read"})==="granted"){ await sbSubir(h); if(!SB_ULT_CAMBIOS) await sbCargar(); return; }
-    }catch(e){}
+      if(auto&&!esMesNombre(auto.name)&&!esAnio(auto.name)){ await sbSubir(auto); if(!SB_ULT_CAMBIOS) await sbCargar(); return; }
+      let h=await leerHandle();
+      if(h&&(esMesNombre(h.name)||esAnio(h.name))) h=null;
+      if(h&&await h.queryPermission({mode:"read"})!=="granted"&&await h.requestPermission({mode:"read"})!=="granted") h=null;
+      if(!h){ h=await window.showDirectoryPicker({mode:"read",id:"martina_onedrive"});
+        if(esMesNombre(h.name)||esAnio(h.name)){ banner(`Elegiste <b>${esc(h.name)}</b>. Elige la carpeta de arriba (<b>PruebaDashboard</b>), la que tiene los años.`,"err"); return; }
+        await guardarHandle(h); }
+      await sbSubir(h); if(!SB_ULT_CAMBIOS) await sbCargar(); return;
+    }catch(e){
+      await sbCargar();
+      banner("No se revisó tu carpeta (no se dio acceso), así que la base no cambió. Lo borrado en tu PC sigue en la base hasta que la revises con <b>Actualizar</b>.","err");
+      return;
+    }
   }
   await sbCargar();
 }
