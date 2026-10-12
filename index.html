@@ -715,7 +715,7 @@ function filasLimpias(ws){
   const crudo=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",blankrows:true});
   const vista=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:"",blankrows:true});
   let filas=crudo.map((r,i)=>{r.w=vista[i]||[];return r;}).filter(r=>r.some(c=>String(c).trim()!==""));
-  if(!filas.length) return {cab:[],cuerpo:[]};
+  if(!filas.length) return {titulo:[],cab:[],cuerpo:[]};
   const ncol=Math.max(...filas.map(r=>r.length));
   const usadas=[]; for(let c=0;c<ncol;c++) if(filas.some(r=>String(r[c]??"").trim()!=="")) usadas.push(c);
   filas=filas.map(r=>{const x=usadas.map(c=>r[c]??"");x.w=usadas.map(c=>r.w[c]??"");return x;});
@@ -743,7 +743,7 @@ function celda(v,w){
 }
 function pintarLibro(hoja){
   const {f,wb}=LIBRO; const v=$("viewer");
-  const ws=wb.Sheets[hoja]; const {titulo,cab,cuerpo}=filasLimpias(ws);
+  const ws=wb.Sheets[hoja]; const {titulo=[],cab=[],cuerpo=[]}=ws?filasLimpias(ws):{};
   const MAX=500;
   const cols=cab.length;
   const esNum=cab.map((_,i)=>{const vals=cuerpo.map(r=>r[i]).filter(x=>x!==""&&x!=null);return vals.length&&vals.filter(x=>typeof x==="number").length/vals.length>.6;});
