@@ -649,6 +649,16 @@ async function escanear(forzar){
   generarPantera(forzar);
 }
 
+// Modo carpeta (sin Supabase): cada minuto revisa la carpeta y recarga solo si algo cambió
+setInterval(async()=>{
+  if(SB_ON||!DIR_HANDLE||document.hidden||$("viewModulo").classList.contains("hidden")) return;
+  try{ const l=[]; for await (const f of recorrer(DIR_HANDLE,"")) l.push(f);
+    for(const f of l){ if(f.handle.meta){ f.mod=f.handle.meta.mod; f.size=f.handle.meta.size; continue; } try{const x=await f.handle.getFile(); f.mod=x.lastModified; f.size=x.size;}catch(e){} }
+    const sig=l.map(a=>a.ruta+"|"+(a.mod||0)+"|"+(a.size||0)).sort().join(";");
+    if(sig!==firma()) await escanear(false);
+  }catch(e){}
+},60*1000);
+
 /* ============================ árbol año / mes ============================ */
 function construirArbol(){
   const arbol={}; const raiz=DIR_HANDLE.name;
@@ -976,7 +986,7 @@ function escucharActividad(w){
 function ocultarIdle(){ const b=$("idleBox"); if(b) b.remove(); }
 function revisarIdle(){
   if(!SB_ON||!SB_USER) return;
-  if(SB_SUBIENDO){ ULT_ACT=Date.now(); return; }   // una subida en curso cuenta como actividad
+  if(SB_SUBIENDO&&!SB_AUTO_SYNC){ ULT_ACT=Date.now(); return; }   // una subida manual en curso cuenta como actividad
   const resta=IDLE_MS-(Date.now()-ULT_ACT);
   if(resta<=0){ cerrarSesion("La sesión se cerró por 10 minutos sin actividad."); return; }
   if(resta<=IDLE_AVISO_MS){
@@ -1073,7 +1083,28 @@ async function sbActualizar(){
   }
   await sbCargar();
 }
-let SB_ULT_CAMBIOS=false;
+let SB_ULT_CAMBIOS=false, SB_AUTO_SYNC=false;
+
+/* ---------- Recarga automática (sin pulsar Actualizar) ----------
+   Cada minuto, con el módulo abierto:
+   - editor/admin con acceso a su carpeta: sube lo nuevo y da de baja lo borrado (sin avisos si no hay cambios)
+   - todos: si la base cambió (otro usuario subió o quitó algo), recarga los archivos y la reportería */
+const AUTO_MS=60*1000;
+const firmaBase=l=>l.map(a=>a.ruta+"|"+(a.hash||"")+"|"+(a.storage||"")).sort().join(";");
+async function autoRevisar(){
+  if(!SB_ON||!SB_USER||!SB_CARGADO||SB_SUBIENDO||document.hidden) return;
+  if($("viewModulo").classList.contains("hidden")||document.querySelector(".dlg-bg")) return;
+  try{
+    if(esEditor()){
+      let h=await detectarAuto();
+      if(!h){ const g=await leerHandle(); if(g&&!esMesNombre(g.name)&&!esAnio(g.name)&&await g.queryPermission({mode:"read"})==="granted") h=g; }
+      if(h&&!esMesNombre(h.name)&&!esAnio(h.name)){ await sbSubir(h,true); if(SB_ULT_CAMBIOS){ banner("✓ Se cargaron automáticamente los cambios de tu carpeta.","ok"); return; } }
+    }
+    const {data,error}=await SB.from("ma_archivos").select("ruta,hash,storage").eq("carpeta_id",SB_CARPETA.id);
+    if(!error&&firmaBase(data||[])!==firmaBase(SB_ARCH)){ await sbCargar(); banner("✓ Se cargaron automáticamente archivos nuevos o cambiados.","ok"); }
+  }catch(e){}
+}
+if(SB_ON) setInterval(autoRevisar,AUTO_MS);
 function sbHdr(){
   if(!SB_USER||!SB_CARPETA) return;
   const ult=SB_ARCH.reduce((m,a)=>Math.max(m,a.sincronizado?Date.parse(a.sincronizado):0),0);
@@ -1141,10 +1172,11 @@ async function sbSubirClick(){
 }
 $("btnSubir").onclick=sbSubirClick;
 const rpc=async(fn,args)=>{ const {data,error}=await SB.rpc(fn,args); if(error) throw new Error(error.message); return data; };
-async function sbSubir(h){
-  if(SB_SUBIENDO||!esEditor()) return; SB_SUBIENDO=true; $("btnSubir").disabled=true;
+async function sbSubir(h,silencioso){
+  if(SB_SUBIENDO||!esEditor()) return; SB_SUBIENDO=true; SB_AUTO_SYNC=!!silencioso; $("btnSubir").disabled=true;
   const cid=SB_CARPETA.id; const errores=[]; let ed=null, nuevos=0, cambiados=0, quitados=0;
-  const prog=t=>banner(`<span class="spin" style="width:16px;height:16px;border-width:2px"></span> ${t}`);
+  let hayCambios=false;
+  const prog=t=>{ if(!silencioso||hayCambios) banner(`<span class="spin" style="width:16px;height:16px;border-width:2px"></span> ${t}`); };
   try{
     prog(`Revisando tu carpeta <b>${esc(h.name)}</b>…`);
     const locales=[]; for await (const f of recorrer(h,"")) locales.push(f);
@@ -1160,6 +1192,7 @@ async function sbSubir(h){
       if(!prev||prev.hash!==hash) cambios.push({f,file,hash,accion:prev?"cambio":"alta"});
     }
     const bajas=[...mapa.keys()];
+    hayCambios=!!(cambios.length||bajas.length);
     if(cambios.length||bajas.length){
       // 2) se abre la edición; el mes de registro lo da el último balance de la carpeta
       const reg=periodoRegistro(locales);
@@ -1186,10 +1219,11 @@ async function sbSubir(h){
     }
   }catch(e){ errores.push(e.message); }
   if(ed!=null){ try{ await rpc("ma_edicion_cerrar",{p_edicion:ed}); }catch(e){ errores.push("cerrar edición: "+e.message); } }
-  SB_SUBIENDO=false; $("btnSubir").disabled=false;
+  SB_SUBIENDO=false; SB_AUTO_SYNC=false; $("btnSubir").disabled=false;
   SB_ULT_CAMBIOS=!!(nuevos||cambiados||quitados);
   if(SB_ULT_CAMBIOS) await sbCargar();
   if(errores.length) banner("Algunos archivos no se pudieron subir: "+esc(errores.slice(0,3).join(" · ")),"err");
+  else if(silencioso&&!SB_ULT_CAMBIOS) return;
   else banner(nuevos||cambiados||quitados?`✓ Base actualizada (edición #${ed}): ${nuevos} nuevo(s), ${cambiados} cambiado(s), ${quitados} quitado(s).`:"✓ La base ya estaba al día con tu carpeta.","ok");
 }
 
