@@ -1,0 +1,93 @@
+M&A CAPITAL · DASHBOARD INTERNO ULTIMATE — CONFIGURACIÓN DE SUPABASE
+=====================================================================
+
+Proyecto Supabase: https://oiongsqkcbovzsavjwql.supabase.co
+Se hace una sola vez. Son 3 pasos.
+
+
+PASO 1 — Base de datos (tablas, roles, historial, reversión, seguridad)
+-----------------------------------------------------------------------
+1. Supabase → SQL Editor → New query.
+2. Pegar completo el archivo  pantera_supabase.sql  y pulsar Run.
+3. Debe terminar con "Success. No rows returned".
+
+   · Se puede correr más de una vez: no borra datos.
+   · Si ya se habían corrido 01_tablas.sql y 02_permisos_subida.sql
+     (versión anterior), este archivo los actualiza y les quita la
+     escritura directa.
+   · Deja como administradora a jromero@rapiprestamos.net.
+     Para usar otro correo, cambiarlo en la última línea antes de correr.
+
+
+PASO 2 — Edge Function para crear usuarios desde el dashboard
+-------------------------------------------------------------
+Opción A (desde el navegador, sin instalar nada):
+1. Supabase → Edge Functions → Deploy a new function → Via Editor.
+2. Nombre de la función:  pantera-usuarios   (exactamente así).
+3. Borrar el código de ejemplo, pegar completo  pantera-usuarios.ts
+   y pulsar Deploy function.
+
+Opción B (con la consola de Supabase CLI):
+   supabase functions deploy pantera-usuarios
+
+   · No hay que configurar variables: Supabase ya le da a la función
+     SUPABASE_URL, SUPABASE_ANON_KEY y SUPABASE_SERVICE_ROLE_KEY.
+   · La service_role solo vive en el servidor. El HTML nunca la tiene.
+
+
+PASO 3 — Cuenta de la administradora
+------------------------------------
+1. Supabase → Authentication → Users → Add user → Create new user.
+2. Correo: jromero@rapiprestamos.net, una contraseña,
+   marcar "Auto Confirm User".
+   (Si la cuenta ya existe, saltar este paso.)
+3. Authentication → Sign In / Providers → Email:
+   desactivar "Allow new users to sign up" (nadie se registra solo;
+   las cuentas las crea la administradora).
+
+Listo. Desde aquí todo se hace en el dashboard.
+
+
+CÓMO SE USA
+-----------
+Roles
+  · Administradora: crea usuarios, maneja permisos, revierte ediciones
+    y quita meses. También puede subir.
+  · Editor: sube información (botón "Subir desde mi carpeta").
+  · Lector: solo ve los reportes.
+
+Pestaña "Usuarios" (solo administradora)
+  · Crear usuario: correo, nombre, contraseña (mínimo 8) y rol.
+  · Cambiar rol, activar/desactivar, cambiar contraseña o eliminar.
+  · Un usuario desactivado no ve nada aunque tenga contraseña.
+
+Pestaña "Historial de ediciones" (administradora y editores)
+  · Cada carga queda registrada: quién, cuándo, mes de registro y qué
+    archivos se agregaron, cambiaron o quitaron.
+  · "Revertir" (administradora) deja los archivos como estaban antes de
+    esa edición. La reversión también queda en el historial.
+  · "Quitar mes" (administradora) saca un mes completo. También se
+    puede revertir.
+  · Cada versión de un Excel se guarda aparte en el Storage; por eso
+    revertir recupera el archivo exacto anterior.
+
+Mes de registro
+  · Lo da el último balance cargado. VAL_DATE es solo una etiqueta
+    (por ejemplo "Valuación al 1-abr-26").
+
+Sesión
+  · No se guarda en el navegador: al cerrar o recargar la pestaña hay
+    que volver a entrar.
+  · Se cierra sola después de 10 minutos sin actividad o al pulsar
+    "Salir". Al cerrarse se borran los datos de la pantalla.
+
+Seguridad
+  · El HTML no trae datos, usuarios, contraseñas ni hashes. Sin
+    sesión solo se ve la pantalla de ingreso.
+  · El navegador no puede escribir directo en las tablas. Toda
+    escritura pasa por funciones de la base (ma_edicion_iniciar,
+    ma_edicion_aplicar, ma_edicion_cerrar, ma_edicion_revertir,
+    ma_quitar_mes, ma_usuario_guardar) que revisan el rol y guardan
+    cada edición en el historial.
+  · La llave "anon" que va en el HTML es pública por diseño. Sin una
+    sesión válida y un rol activo no da acceso a nada.
