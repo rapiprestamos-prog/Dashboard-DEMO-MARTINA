@@ -278,7 +278,8 @@ window.MA=(function(){
     for(let k=0;k<lista.length;k++){ const it=lista[k]; progreso&&progreso(`Armando ${k+1} de ${lista.length}: ${it.nombre}`);
       try{
         let buf=await (await it.getFile()).arrayBuffer();
-        if(!/\.(xlsx|xlsm)$/i.test(it.nombre)){ const wbx=XLSX.read(buf,{type:"array"}); buf=XLSX.write(wbx,{bookType:"xlsx",type:"array"}); }   // .xls/.csv
+        const wbx=XLSX.read(buf,{type:"array"});   // valores guardados en el archivo (sirve para fórmulas cuyo resultado es 0)
+        if(!/\.(xlsx|xlsm)$/i.test(it.nombre)) buf=XLSX.write(wbx,{bookType:"xlsx",type:"array"});   // .xls/.csv
         const src=new ExcelJS.Workbook(); await src.xlsx.load(buf);
         const hojas=src.worksheets.filter(w=>w.state!=="hidden"&&w.state!=="veryHidden"&&w.actualRowCount>0);
         const base=limpio(it.nombre.replace(/\.[^.]+$/,""));
@@ -289,7 +290,8 @@ window.MA=(function(){
           if(ws.properties&&ws.properties.tabColor) dst.properties.tabColor=copia(ws.properties.tabColor);
           (ws.columns||[]).forEach((c,ci)=>{ const d=dst.getColumn(ci+1); if(c.width) d.width=c.width; if(c.hidden) d.hidden=true; if(c.style&&Object.keys(c.style).length) d.style=copia(c.style); });
           ws.eachRow({includeEmpty:true},(row,ri)=>{ const r=dst.getRow(ri); if(row.height) r.height=row.height; if(row.hidden) r.hidden=true;
-            row.eachCell({includeEmpty:true},(cell,ci)=>{ const c=r.getCell(ci); const v=valor(cell.value); if(v!==null&&v!==undefined) c.value=(v instanceof Date||typeof v!=="object")?v:copia(v); c.style=copia(cell.style)||{}; }); });
+            row.eachCell({includeEmpty:true},(cell,ci)=>{ const c=r.getCell(ci); let v=valor(cell.value);
+              if((v===null||v===undefined)&&cell.value&&typeof cell.value==="object"&&("formula" in cell.value||"sharedFormula" in cell.value)){ const sx=wbx.Sheets[ws.name]&&wbx.Sheets[ws.name][cell.address]; if(sx&&sx.v!==undefined&&sx.t!=="e") v=sx.v; } if(v!==null&&v!==undefined) c.value=(v instanceof Date||typeof v!=="object")?v:copia(v); c.style=copia(cell.style)||{}; }); });
           ((ws.model&&ws.model.merges)||[]).forEach(m=>{ try{ dst.mergeCells(m); }catch(e){} });
           filas.push([it.carpeta||"",it.nombre,ws.name,nom]);
         }
