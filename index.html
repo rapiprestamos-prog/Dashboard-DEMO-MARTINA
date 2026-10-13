@@ -970,6 +970,7 @@ $("loginForm").onsubmit=async e=>{
 // Cierra la sesión y borra todo lo que quedó en pantalla y en el navegador
 async function cerrarSesion(motivo){
   const habia=!!SB_USER;
+  FILE_CACHE.clear();
   SB_USER=null; SB_ROL=null; SB_MODS=[]; SB_CARPETA=null; SB_ARCH=[]; SB_CARGADO=false; SB_SUBIDA_HECHA=false;
   try{ await SB.auth.signOut(); }catch(e){}
   DIR_HANDLE=null; ARCHIVOS=[]; ARBOL={}; SEL=null; LIBRO=null; ABIERTOS.clear();
@@ -1035,12 +1036,17 @@ function dialogo({titulo,texto,ok="Aceptar",peligro=false,campo=null}){
 
 /* ---------- Lectura de la base ---------- */
 // Los archivos de Supabase se presentan igual que una carpeta: el lector y Pantera no cambian
+// Caché en memoria por versión (ruta en Storage): un archivo que no cambió no se vuelve a descargar,
+// y lo que el editor acaba de subir se usa directo desde su carpeta (sin bajarlo otra vez)
+const FILE_CACHE=new Map();
 function sbFileHandle(a){
   return {kind:"file",name:a.nombre,meta:{mod:a.modificado?Date.parse(a.modificado):0,size:a.tamano},
     async getFile(){
+      const c=FILE_CACHE.get(a.storage); if(c) return c;
       const {data,error}=await SB.storage.from("reportes").download(a.storage);
       if(error) throw new Error(error.message);
-      return new File([data], a.nombre, {lastModified:a.modificado?Date.parse(a.modificado):Date.now()});
+      const f=new File([data], a.nombre, {lastModified:a.modificado?Date.parse(a.modificado):Date.now()});
+      FILE_CACHE.set(a.storage,f); return f;
     }};
 }
 function sbDirHandle(carpeta, archivos){
@@ -1114,7 +1120,13 @@ async function autoRevisar(){
     if(!error&&firmaBase(data||[])!==firmaBase(SB_ARCH)){ await sbCargar(); banner("✓ Se cargaron automáticamente archivos nuevos o cambiados.","ok"); }
   }catch(e){}
 }
-if(SB_ON) setInterval(autoRevisar,AUTO_MS);
+if(SB_ON){
+  setInterval(autoRevisar,AUTO_MS);
+  // al volver a la pestaña (p. ej. después de mover archivos en el Explorador) revisa al instante
+  let ultFoco=0;
+  const alVolver=()=>{ if(document.hidden||Date.now()-ultFoco<5000) return; ultFoco=Date.now(); autoRevisar(); };
+  window.addEventListener("focus",alVolver); document.addEventListener("visibilitychange",alVolver);
+}
 function sbHdr(){
   if(!SB_USER||!SB_CARPETA) return;
   const ult=SB_ARCH.reduce((m,a)=>Math.max(m,a.sincronizado?Date.parse(a.sincronizado):0),0);
@@ -1191,7 +1203,7 @@ async function sbSubir(h,silencioso){
     prog(`Revisando tu carpeta <b>${esc(h.name)}</b>…`);
     // solo lo que está dentro de AÑO › MES; lo que se sacó de ahí se da de baja
     const locales=[]; for await (const f of recorrer(h,"")) if(enFecha(f.ruta,h.name)) locales.push(f);
-    const {data:enBase,error:eb}=await SB.from("ma_archivos").select("ruta,hash").eq("carpeta_id",cid);
+    const {data:enBase,error:eb}=await SB.from("ma_archivos").select("ruta,hash,storage").eq("carpeta_id",cid);
     if(eb) throw new Error(eb.message);
     const mapa=new Map((enBase||[]).map(a=>[a.ruta,a]));
     // 1) qué cambió (sin tocar la base todavía)
@@ -1201,6 +1213,7 @@ async function sbSubir(h,silencioso){
       const hash=file.size+"-"+file.lastModified;
       const prev=mapa.get(f.ruta); mapa.delete(f.ruta);
       if(!prev||prev.hash!==hash) cambios.push({f,file,hash,accion:prev?"cambio":"alta"});
+      else if(prev.storage&&!FILE_CACHE.has(prev.storage)) FILE_CACHE.set(prev.storage,file);
     }
     const bajas=[...mapa.keys()];
     hayCambios=!!(cambios.length||bajas.length);
@@ -1209,19 +1222,25 @@ async function sbSubir(h,silencioso){
       const reg=periodoRegistro(locales);
       ed=await rpc("ma_edicion_iniciar",{p_carpeta:cid,p_descripcion:"Carga desde la carpeta "+h.name,p_anio:reg?reg.anio:null,p_mes:reg?reg.mes:null});
       const ver=new Date().toISOString().replace(/\D/g,"").slice(0,14);
-      let i=0;
-      for(const c of cambios){
-        i++; prog(`Subiendo ${i} de ${cambios.length}: <b>${esc(c.f.nombre)}</b>`);
+      // se suben 4 archivos a la vez
+      let listos=0, sig=0;
+      prog(`Subiendo ${cambios.length} archivo(s)…`);
+      const subirUno=async c=>{
         const obj=`${cid}/${ver}-${ed}/${claveSegura(c.f.ruta)}`;
         const up=await SB.storage.from("reportes").upload(obj,c.file,{upsert:false,contentType:c.file.type||"application/octet-stream"});
-        if(up.error){ errores.push(c.f.nombre+": "+up.error.message); continue; }
+        if(up.error){ errores.push(c.f.nombre+": "+up.error.message); return; }
+        FILE_CACHE.set(obj,c.file);
         const {anio,mes}=anioMesDeRuta(c.f.ruta);
         try{
           await rpc("ma_edicion_aplicar",{p_edicion:ed,p_accion:c.accion,p_fila:{ruta:c.f.ruta,nombre:c.f.nombre,anio,mes,tamano:c.file.size,
             modificado:new Date(c.file.lastModified).toISOString(),storage:obj,hash:c.hash}});
           c.accion==="alta"?nuevos++:cambiados++;
         }catch(e){ errores.push(c.f.nombre+": "+e.message); }
-      }
+      };
+      await Promise.all(Array.from({length:Math.min(4,cambios.length)},async()=>{
+        while(sig<cambios.length){ const c=cambios[sig++]; await subirUno(c); listos++;
+          prog(`Subiendo ${listos} de ${cambios.length}: <b>${esc(c.f.nombre)}</b>`); }
+      }));
       // lo que ya no está en la carpeta se da de baja (el archivo queda guardado para poder revertir)
       for(const ruta of bajas){
         try{ await rpc("ma_edicion_aplicar",{p_edicion:ed,p_accion:"baja",p_fila:{ruta}}); quitados++; }
