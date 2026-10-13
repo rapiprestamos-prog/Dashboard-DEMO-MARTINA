@@ -48,6 +48,29 @@ PASO 3 — Cuenta de la administradora
 Listo. Desde aquí todo se hace en el dashboard.
 
 
+CÓMO ESTÁ ARMADO (un HTML por módulo)
+-------------------------------------
+  index.html            Inicio: solo las tarjetas. Cada tarjeta abre su página.
+  pantera.html          Pantera Reportería — Martina
+  contabilidad.html     Dashboard Contabilidad (lector + Reportes específicos)
+  dashboard-legal.html  Dashboard de Legal (lector)
+  legal.html            Agente Legal
+  tareas.html           Seguimiento de tareas
+  usuarios.html         Usuarios y permisos (solo administradora)
+  · Cada página pide su usuario y contraseña si no se entró antes en esa pestaña.
+    Al pasar de una página a otra en la misma pestaña no vuelve a pedirla.
+  · La sesión se cierra con "Salir", al cerrar la pestaña o tras 10 minutos sin
+    actividad.
+
+REPORTES ESPECÍFICOS (Dashboard Contabilidad)
+  · La administradora arma cada reporte: qué archivos (el nombre contiene…),
+    hoja, periodo, columnas, filtros, agrupar y sumar (y una columna por mes).
+  · Se guardan en la carpeta Contabilidad de OneDrive, en el archivo
+    _reportes_dashboard.json; así todos los usuarios ven los mismos reportes.
+    La primera vez que se guarda, Chrome pide permiso para escribir en la carpeta.
+  · Los datos salen siempre de los Excel de la carpeta (año › mes). Cada reporte
+    se descarga en Excel con la lista de archivos usados.
+
 CÓMO SE USA
 -----------
 Qué hace cada parte

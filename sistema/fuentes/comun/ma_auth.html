@@ -1,0 +1,150 @@
+<!-- ===== M&A Capital · acceso (cada página es independiente; mismo usuario y clave en todas) ===== -->
+<style>
+.ma-hdr{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:10px 12px 0;padding:7px 14px;border-radius:12px;color:#fff;
+  background:linear-gradient(115deg,#0f2440,#1b3a5c 55%,#0f5560);box-shadow:0 1px 2px rgba(15,23,42,.05),0 4px 14px rgba(15,23,42,.05);font-family:Inter,system-ui,"Segoe UI",sans-serif;line-height:1.3}
+.ma-hdr .ma-b{display:flex;align-items:center;gap:12px;min-width:0}
+.ma-hdr .ma-logo{height:40px;width:auto;flex:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.25))}
+.ma-hdr .ma-sep{width:1px;align-self:stretch;margin:4px 0;background:linear-gradient(180deg,transparent,rgba(227,194,122,.7),transparent)}
+.ma-hdr .ma-k{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#e3c27a;font-weight:700;text-decoration:none}
+.ma-hdr .ma-k:hover{color:#fff}
+.ma-hdr h1{margin:0;font-size:17px;font-weight:800;color:#fff}
+.ma-hdr .ma-sub{font-size:11.5px;color:rgba(255,255,255,.75);margin-top:1px}
+.ma-hdr .ma-der{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ma-chip{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:rgba(227,194,122,.2);color:#e3c27a;border:1px solid rgba(227,194,122,.45)}
+.ma-hbtn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer;text-decoration:none}
+.ma-hbtn:hover{background:rgba(255,255,255,.16)}
+.ma-oculto{display:none!important}
+body.ma-fuera>*:not(.ma-hdr):not(.ma-login):not(script):not(style):not(link){display:none!important}
+.ma-login{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,system-ui,"Segoe UI",sans-serif;background:#f3f5f9}
+.ma-card{width:100%;max-width:420px;background:#fff;border:1px solid #dde3ec;border-radius:18px;box-shadow:0 18px 50px rgba(15,23,42,.12);overflow:hidden}
+.ma-top{padding:26px 28px 20px;color:#fff;text-align:center;background:radial-gradient(120% 160% at 12% 0%,#2b5a86 0%,#1b3a5c 40%,#0f2440 80%)}
+.ma-top img{height:62px;margin-bottom:10px}
+.ma-top .ma-ey{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#e3c27a;font-weight:700}
+.ma-top h2{margin:4px 0 0;font-size:19px;font-weight:800}
+.ma-body{padding:24px 28px 22px}
+.ma-body form{display:flex;flex-direction:column;gap:10px}
+.ma-inp{padding:10px 12px;border-radius:9px;border:1px solid #dde3ec;font:14px Inter,system-ui,sans-serif;color:#0f1c2e;background:#fff;outline:none}
+.ma-inp:focus{border-color:#1b3a5c}
+.ma-ok{padding:11px 22px;border-radius:9px;border:1px solid #e3c27a;background:#e3c27a;color:#0f2440;font:700 14px Inter,system-ui,sans-serif;cursor:pointer}
+.ma-ok:disabled{opacity:.6;cursor:default}
+.ma-err{color:#b03a32;min-height:16px;font-size:12.5px;text-align:center}
+.ma-nota{margin:14px 0 0;font-size:11.5px;color:#8792a4;text-align:center;line-height:1.5}
+.ma-nota a{color:#1b3a5c;font-weight:600}
+.ma-idle{position:fixed;right:22px;bottom:22px;z-index:9999;max-width:360px;background:#fff;border:1px solid #f0dcaa;border-left:5px solid #b98b2f;border-radius:12px;padding:14px 16px;box-shadow:0 18px 40px rgba(15,23,42,.22);font:13px Inter,system-ui,sans-serif;color:#0f1c2e}
+.ma-idle b{display:block;margin-bottom:4px;font-size:14px}
+.ma-idle button{margin-top:10px;padding:6px 12px;border-radius:8px;border:none;background:#1b3a5c;color:#fff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+window.MA=(function(){
+  const URL_="__SUPABASE_URL__", ANON="__SUPABASE_ANON__", VERSION="__VERSION__", LOGO="__LOGO_MYA__";
+  const MODULOS=[
+    {id:"martina",nombre:"Pantera Reportería — Martina",url:"pantera.html"},
+    {id:"contabilidad",nombre:"Dashboard Contabilidad",url:"contabilidad.html"},
+    {id:"agente_legal",nombre:"Agente Legal",url:"legal.html"},
+    {id:"legal",nombre:"Dashboard de Legal",url:"dashboard-legal.html"},
+    {id:"tareas",nombre:"Seguimiento de tareas",url:"tareas.html"}];
+  const ROL_TXT={admin:"Administradora",editor:"Editor",lector:"Lector"};
+  const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  // La sesión vive solo en esta pestaña (se borra al cerrarla) y se cierra tras 10 minutos sin actividad o con "Salir".
+  const ss={getItem:k=>{try{return sessionStorage.getItem(k);}catch(e){return null;}},setItem:(k,v)=>{try{sessionStorage.setItem(k,v);}catch(e){}},removeItem:k=>{try{sessionStorage.removeItem(k);}catch(e){}}};
+  const ON=/^https?:\/\//.test(URL_)&&ANON.length>20&&!!window.supabase;
+  const sb=ON?window.supabase.createClient(URL_,ANON,{auth:{storage:ss,storageKey:"ma-sesion",persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}}):null;
+  const IDLE=10*60*1000, AVISO=60*1000, KACT="ma-ult-act", KMSG="ma-msg";
+  let ctx=null, O={}, listo; const listoP=new Promise(r=>listo=r);
+  const $=id=>document.getElementById(id);
+
+  function cabecera(){
+    if(O.cabecera===false||$("maHdr")) return;
+    const h=document.createElement("div"); h.className="ma-hdr"; h.id="maHdr";
+    h.innerHTML=`<div class="ma-b"><img class="ma-logo" src="${LOGO}" alt="M&amp;A Capital Inc"><div class="ma-sep"></div><div>
+      <a class="ma-k" href="index.html" title="Volver al inicio">← M&amp;A Capital · Inicio · ${esc(VERSION)}</a><h1>${esc(O.titulo||"")}</h1><div class="ma-sub" id="maSub">Inicia sesión para entrar</div></div></div>
+      <div class="ma-der"><span id="maExtra"></span><span class="ma-chip ma-oculto" id="maChip"></span><button class="ma-hbtn ma-oculto" id="maSalir" title="Cerrar sesión">⎋ Salir</button></div>`;
+    document.body.prepend(h); $("maSalir").onclick=()=>salir();
+  }
+  function pantallaLogin(msg,sinPermiso){
+    document.body.classList.add("ma-fuera");
+    let l=$("maLogin"); if(l) l.remove();
+    l=document.createElement("div"); l.className="ma-login"; l.id="maLogin";
+    const titulo=O.soloAdmin?"Usuarios y permisos":(O.titulo||"Dashboard Interno Ultimate");
+    l.innerHTML=`<div class="ma-card"><div class="ma-top"><img src="${LOGO}" alt="M&amp;A Capital Inc"><div class="ma-ey">M&amp;A Capital · Uso interno</div><h2>${esc(titulo)}</h2></div>
+      <div class="ma-body">${sinPermiso?`<div class="ma-err" style="margin-bottom:14px">${esc(msg)}</div>
+        <button class="ma-ok" id="maOtro" style="width:100%">Entrar con otro usuario</button>`:`<form id="maForm">
+        <input class="ma-inp" type="email" id="maEmail" placeholder="correo@empresa.com" autocomplete="username" required>
+        <input class="ma-inp" type="password" id="maPass" placeholder="Contraseña" autocomplete="current-password" required>
+        <button class="ma-ok" type="submit" id="maEntrar">Entrar</button>
+        <div class="ma-err" id="maErr">${esc(msg||"")}</div></form>`}
+        <p class="ma-nota">La sesión se cierra al pulsar “Salir”, al cerrar la pestaña o tras 10 minutos sin actividad.<br><a href="index.html">← Volver al inicio</a></p></div></div>`;
+    const hdr=$("maHdr"); if(hdr) hdr.after(l); else document.body.prepend(l);
+    if(sinPermiso){ $("maOtro").onclick=async()=>{ try{ await sb.auth.signOut(); }catch(e){} pantallaLogin(""); }; return; }
+    $("maForm").onsubmit=async e=>{
+      e.preventDefault(); $("maErr").textContent=""; $("maEntrar").disabled=true;
+      const {error}=await sb.auth.signInWithPassword({email:$("maEmail").value.trim(),password:$("maPass").value});
+      $("maEntrar").disabled=false; $("maPass").value="";
+      if(error){ $("maErr").textContent=/invalid/i.test(error.message)?"Correo o contraseña incorrectos.":error.message; return; }
+      ss.setItem(KACT,String(Date.now())); await validar();
+    };
+    setTimeout(()=>{ try{ $("maEmail").focus(); }catch(e){} },50);
+  }
+  // ¿quién es y qué puede ver? (ma_usuarios: rol, módulos, activo)
+  async function leerUsuario(){
+    if(!sb) return null;
+    const {data:{session}}=await sb.auth.getSession(); if(!session) return null;
+    const ult=+ss.getItem(KACT)||0;
+    if(ult&&Date.now()-ult>IDLE){ try{ await sb.auth.signOut(); }catch(e){} ss.setItem(KMSG,"La sesión se cerró por 10 minutos sin actividad."); return null; }
+    const email=session.user.email.toLowerCase();
+    const {data:yo,error}=await sb.from("ma_usuarios").select("rol,modulos,activo").eq("email",email).maybeSingle();
+    if(error) return {error:"No se pudo validar tu acceso: "+error.message};
+    if(!yo||!yo.activo){ try{ await sb.auth.signOut(); }catch(e){} return {error:"Tu usuario no tiene acceso al dashboard o está desactivado. Pídele acceso a la administradora."}; }
+    return {sb,email,rol:yo.rol,modulos:yo.modulos||[],token:session.access_token,user:session.user,url:URL_,anon:ANON};
+  }
+  const puede=(c,id)=>c&&(c.rol==="admin"||(c.modulos||[]).includes(id));
+  function avisarPagina(){ if(!ctx) return; try{ window.postMessage({type:"MA_SESSION",url:URL_,anon:ANON,token:ctx.token,email:ctx.email,rol:ctx.rol,modulos:ctx.modulos},"*"); }catch(e){} }
+  async function validar(){
+    const c=await leerUsuario();
+    if(!c){ const m=ss.getItem(KMSG)||""; ss.removeItem(KMSG); pantallaLogin(m); return; }
+    if(c.error){ pantallaLogin(c.error); return; }
+    if(O.soloAdmin? c.rol!=="admin" : (O.modulo&&!puede(c,O.modulo))){
+      pantallaLogin(O.soloAdmin?"Solo la administradora puede manejar usuarios.":"Tu usuario ("+c.email+") no tiene acceso a "+(O.titulo||"este módulo")+". Pídele acceso a la administradora.",true); return; }
+    ctx=c; const l=$("maLogin"); if(l) l.remove(); document.body.classList.remove("ma-fuera");
+    if($("maSub")) $("maSub").textContent=c.email;
+    if($("maChip")){ $("maChip").textContent=ROL_TXT[c.rol]||c.rol; $("maChip").classList.remove("ma-oculto"); }
+    if($("maSalir")) $("maSalir").classList.remove("ma-oculto");
+    actividad(); avisarPagina(); listo(c);
+    try{ window.dispatchEvent(new CustomEvent("ma:sesion",{detail:c})); }catch(e){}
+  }
+  // ---- inactividad (cuenta en todas las páginas de la pestaña) ----
+  let ultEsc=0;
+  function actividad(){ const n=Date.now(); if(n-ultEsc>1000){ ultEsc=n; ss.setItem(KACT,String(n)); } const b=$("maIdle"); if(b) b.remove(); }
+  ["mousemove","mousedown","keydown","wheel","touchstart","scroll"].forEach(ev=>addEventListener(ev,()=>{ if(ctx) actividad(); },{passive:true,capture:true}));
+  setInterval(()=>{
+    if(!ctx) return;
+    const resta=IDLE-(Date.now()-(+ss.getItem(KACT)||Date.now()));
+    if(resta<=0){ salir("La sesión se cerró por 10 minutos sin actividad."); return; }
+    if(resta<=AVISO){ let b=$("maIdle");
+      if(!b){ b=document.createElement("div"); b.id="maIdle"; b.className="ma-idle"; b.innerHTML=`<b>¿Sigues ahí?</b>La sesión se cerrará en <span id="maSeg"></span> s por inactividad.<br><button type="button">Seguir conectado</button>`; document.body.appendChild(b); b.querySelector("button").onclick=()=>{ ultEsc=0; actividad(); }; }
+      $("maSeg").textContent=Math.ceil(resta/1000); }
+  },1000);
+  async function salir(msg){
+    ctx=null; try{ await sb.auth.signOut(); }catch(e){}
+    ss.removeItem(KACT); if(msg) ss.setItem(KMSG,msg); else ss.setItem(KMSG,"Sesión cerrada.");
+    location.reload();   // la página vuelve a empezar limpia, sin datos en pantalla
+  }
+  if(sb) sb.auth.onAuthStateChange((ev,session)=>{
+    if(ev==="TOKEN_REFRESHED"&&ctx&&session){ ctx.token=session.access_token; avisarPagina(); }
+    if(ev==="SIGNED_OUT"&&ctx) salir("La sesión expiró. Vuelve a entrar.");
+  });
+  addEventListener("load",()=>{ if(ctx) avisarPagina(); });
+
+  return {
+    MODULOS, ROL_TXT, VERSION, sb, puede, esc, actividad:()=>{ if(ctx) actividad(); },
+    listo:listoP, ctx:()=>ctx, salir,
+    // Página que exige usuario: {modulo, titulo, soloAdmin, cabecera}
+    iniciar(o){ O=o||{}; document.body.classList.add("ma-fuera"); cabecera();
+      if(!ON){ pantallaLogin("Falta configurar Supabase en el dashboard."); return listoP; }
+      validar(); return listoP; },
+    // Inicio: no exige usuario; si ya entró en esta pestaña, devuelve quién es
+    async opcional(){ if(!ON) return null; const c=await leerUsuario(); if(!c||c.error) return null; ctx=c; actividad(); return c; }
+  };
+})();
+</script>
