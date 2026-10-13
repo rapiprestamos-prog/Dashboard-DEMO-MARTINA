@@ -466,11 +466,12 @@ ul{margin:0;padding-left:20px}
     let r;
     try{ r=await fetch(SES.url.replace(/\/$/,"")+"/functions/v1/agente-legal",{method:"POST",signal,
       headers:{"Content-Type":"application/json",apikey:SES.anon,Authorization:"Bearer "+SES.token},body:JSON.stringify(body)}); }
-    catch(e){ if(signal&&signal.aborted) throw err("cancelled","Detenido"); throw err("upstream_error","No hay conexión con Supabase."); }
+    catch(e){ if(signal&&signal.aborted) throw err("cancelled","Detenido"); throw err("config","No se encontró la función agente-legal en Supabase. Revisa en Supabase → Edge Functions que exista una función llamada exactamente agente-legal (no agente-legal-ts) y que esté publicada."); }
     const out=await r.json().catch(()=>({}));
     if(r.ok) return out;
     const m=out.error||r.statusText||"Error";
     if(r.status===401) throw err("session_expired","La sesión venció. Vuelve a entrar desde el inicio.");
+    if(r.status===404) throw err("config","No se encontró la función agente-legal en Supabase. Revisa que se llame exactamente agente-legal y que esté publicada.");
     if(r.status===403) throw err("not_granted",m);
     if(r.status===429||/rate.?limit|overloaded/i.test(m)) throw err("rate_limited",m);
     if(/too long|too large|prompt is too long/i.test(m)) throw err("prompt_too_large",m);
@@ -823,7 +824,7 @@ async function send(){
   try{const r=await sample([{role:'user',content:RULES},...trimmed],opts);answer=r.text;txt.hidden=false;txt.innerHTML=md(answer);if(r.truncated)txt.insertAdjacentHTML('beforeend','<p class="status">La respuesta se cortó. Pide menos a la vez.</p>')}
   catch(e){const c=e&&e.code;answer=e&&e.text||'';
     if(answer){txt.hidden=false;txt.innerHTML=md(answer)}
-    if(c!=='cancelled'){txt.hidden=false;txt.insertAdjacentHTML('beforeend','<p class="err">'+esc(c==='config'?e.message:(SERR[c]||(e&&e.message)||'No se pudo completar.'))+'</p>')}
+    if(c!=='cancelled'){txt.hidden=false;txt.insertAdjacentHTML('beforeend','<p class="err">'+esc((c==='config'||c==='not_granted'||c==='session_expired')?e.message:(SERR[c]||(e&&e.message)||'No se pudo completar.'))+'</p>')}
     else if(!answer){txt.hidden=false;txt.insertAdjacentHTML('beforeend','<p class="status">Detenido.</p>')}}
   think.hidden=true;setBusy(false);ctl=null;
   if(answer){turns.push({role:'assistant',content:answer});row.hidden=false;
