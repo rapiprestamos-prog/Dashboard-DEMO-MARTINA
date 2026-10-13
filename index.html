@@ -457,6 +457,14 @@ const esAnio = s => /^(19|20)\d{2}$/.test(s);
 // nombre de carpeta que ES un mes (AGOSTO, 08, 08-AGOSTO, AGOSTO 2026…), no solo que lo contenga
 const esMesNombre = s => { const n=norm(s).replace("SETIEMBRE","SEPTIEMBRE").trim();
   return /^(0?[1-9]|1[0-2])$/.test(n) || new RegExp("^(\\d{1,2}[\\s._-]*)?("+MESES.join("|")+")([\\s._-]*\\d{2,4})?$").test(n); };
+// Solo cuentan los archivos que están dentro de AÑO › MES (p. ej. 2026/AGOSTO/...).
+// Lo que está fuera de esa estructura (una carpeta de mes movida a la raíz, archivos sueltos) no se muestra ni se usa.
+function enFecha(ruta, raiz){
+  let c=String(ruta).split("/").slice(0,-1);
+  if(raiz&&esAnio(raiz)) c=[raiz,...c];
+  const i=c.findIndex(esAnio);
+  return i>=0 && !!c[i+1] && esMesNombre(c[i+1]);
+}
 const fFecha = t => t ? new Date(t).toLocaleString("es-PA",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
 const fTam = b => b==null ? "" : b<1024 ? b+" B" : b<1048576 ? (b/1024).toFixed(0)+" KB" : (b/1048576).toFixed(1)+" MB";
 
@@ -629,6 +637,8 @@ async function escanear(forzar){
     }
     banner("Error leyendo la carpeta: "+esc(e.message),"err"); return;
   }
+  const enLaFecha=lista.filter(f=>enFecha(f.ruta,DIR_HANDLE.name));
+  lista.length=0; lista.push(...enLaFecha);
   for(const f of lista){
     if(f.handle.meta){ f.mod=f.handle.meta.mod; f.size=f.handle.meta.size; continue; }
     try{const file=await f.handle.getFile(); f.mod=file.lastModified; f.size=file.size;}catch(e){}
@@ -638,7 +648,7 @@ async function escanear(forzar){
   $("cntArchivos").textContent=ARCHIVOS.length;
   $("hdrSub").textContent=`Carpeta: ${DIR_HANDLE.name}${AUTO?" (automática)":""} · ${ARCHIVOS.length} archivo(s) · actualizado ${new Date().toLocaleTimeString("es-PA",{hour:"2-digit",minute:"2-digit"})}`;
   // aviso si se conectó un mes en vez de la carpeta raíz
-  if(!ARCHIVOS.length){ if(!SB_ON) banner(`La carpeta <b>${esc(DIR_HANDLE.name)}</b> no tiene archivos Excel.`,"err"); }
+  if(!ARCHIVOS.length){ if(!SB_ON) banner(`La carpeta <b>${esc(DIR_HANDLE.name)}</b> no tiene archivos Excel dentro de carpetas de año y mes (por ejemplo <b>2026 › AGOSTO</b>).`,"err"); }
   else if(!Object.keys(ARBOL).some(esAnio) && (esMesNombre(DIR_HANDLE.name) || esAnio(DIR_HANDLE.name)))
     banner(`<span class="grow">Estás conectado solo a <b>${esc(DIR_HANDLE.name)}</b>. Para ver todos los años y meses, conecta la carpeta raíz <b>PruebaDashboard</b>.</span><button class="btn sm pri" onclick="elegirCarpeta()">Cambiar a PruebaDashboard</button>`,"","raiz_"+DIR_HANDLE.name);
   else banner("");
@@ -652,7 +662,7 @@ async function escanear(forzar){
 // Modo carpeta (sin Supabase): cada minuto revisa la carpeta y recarga solo si algo cambió
 setInterval(async()=>{
   if(SB_ON||!DIR_HANDLE||document.hidden||$("viewModulo").classList.contains("hidden")) return;
-  try{ const l=[]; for await (const f of recorrer(DIR_HANDLE,"")) l.push(f);
+  try{ const l=[]; for await (const f of recorrer(DIR_HANDLE,"")) if(enFecha(f.ruta,DIR_HANDLE.name)) l.push(f);
     for(const f of l){ if(f.handle.meta){ f.mod=f.handle.meta.mod; f.size=f.handle.meta.size; continue; } try{const x=await f.handle.getFile(); f.mod=x.lastModified; f.size=x.size;}catch(e){} }
     const sig=l.map(a=>a.ruta+"|"+(a.mod||0)+"|"+(a.size||0)).sort().join(";");
     if(sig!==firma()) await escanear(false);
@@ -1179,7 +1189,8 @@ async function sbSubir(h,silencioso){
   const prog=t=>{ if(!silencioso||hayCambios) banner(`<span class="spin" style="width:16px;height:16px;border-width:2px"></span> ${t}`); };
   try{
     prog(`Revisando tu carpeta <b>${esc(h.name)}</b>…`);
-    const locales=[]; for await (const f of recorrer(h,"")) locales.push(f);
+    // solo lo que está dentro de AÑO › MES; lo que se sacó de ahí se da de baja
+    const locales=[]; for await (const f of recorrer(h,"")) if(enFecha(f.ruta,h.name)) locales.push(f);
     const {data:enBase,error:eb}=await SB.from("ma_archivos").select("ruta,hash").eq("carpeta_id",cid);
     if(eb) throw new Error(eb.message);
     const mapa=new Map((enBase||[]).map(a=>[a.ruta,a]));
