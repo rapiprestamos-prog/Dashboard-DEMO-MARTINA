@@ -268,5 +268,6 @@ tr.dx-off td{opacity:.6}
   document.getElementById("views").appendChild(v);
   v.querySelectorAll(".dx-tab").forEach(b=>b.onclick=()=>{ TAB=b.dataset.t; pintar(); });
   SH.onFolder(()=>{ if(SH.view==="doc") cargar(); });
+  window.DOC_CARGAR=cargar;
 })();
 </script>

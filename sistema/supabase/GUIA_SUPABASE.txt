@@ -143,6 +143,12 @@ SEGUIMIENTO DE TAREAS
   · Las tareas se guardan en Supabase (tablas ta_*).
 
 AGENTE LEGAL (mismo diseño que el de Martina)
+  · Pestañas: Inicio · Due diligence · Redacción · Cierre (versión del video de
+    Martina: trabajan por caso = subcarpeta de Legal) · Agente · Checklists y
+    herramientas legales (versión del HTML de Martina) · Documentos.
+  · Inicio, Due diligence, Redacción y Cierre guardan los datos de cada caso,
+    los checklists y el último resultado en Supabase (tablas lg_*): necesitan
+    que se haya corrido modulos_tareas_legal.sql (paso A).
   · Dos pestañas: "Agente" (chat que lee los documentos y responde con la cita
     de dónde sale cada dato) y "Checklists y herramientas legales" (Redacción de
     contratos, Cierre de procesos, Comparar documentos, Consultar documento y
