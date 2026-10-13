@@ -778,18 +778,12 @@ function pintarLibro(hoja){
   $("btnBajarMes").onclick=()=>descargarMes(f.anio,f.mes);
 }
 async function descargarMes(anio,mes){
-  const fs=(ARBOL[anio]||{})[mes]||[]; if(!fs.length) return;
-  const out=XLSX.utils.book_new(); const usados=new Set();
-  for(const f of fs){
-    try{ const wb=XLSX.read(await (await f.handle.getFile()).arrayBuffer(),{type:"array"});
-      wb.SheetNames.forEach(h=>{
-        let base=(f.nombre.replace(/\.[^.]+$/,"")+" - "+h).replace(/[\\/?*[\]:]/g,"").slice(0,31)||"Hoja", n=base, i=1;
-        while(usados.has(n.toLowerCase())){ i++; n=base.slice(0,28)+"_"+i; } usados.add(n.toLowerCase());
-        XLSX.utils.book_append_sheet(out, wb.Sheets[h], n);
-      });
-    }catch(e){}
-  }
-  XLSX.writeFile(out, `Consolidado_${mes}_${esAnio(anio)?anio:""}.xlsx`.replace(/\s+/g,"_").replace("_.",".") );
+  const fs=((ARBOL[anio]||{})[mes]||[]).slice().sort((x,y)=>x.nombre.localeCompare(y.nombre,"es")); if(!fs.length) return;
+  const b=$("btnBajarMes"), t0=b?b.textContent:""; if(b){ b.disabled=true; }
+  try{ await MA.consolidarExcel(fs.map(f=>({nombre:f.nombre,carpeta:`${anio} › ${mes}`,getFile:()=>f.handle.getFile()})),
+      `Consolidado_${mes}_${esAnio(anio)?anio:""}.xlsx`.replace(/\s+/g,"_").replace("_.","."), `Consolidado ${mes} ${anio} · Pantera Real Estate Fund`, t=>{ if(b) b.textContent=t.slice(0,40)+"…"; }); }
+  catch(e){ banner("No se pudo armar el Excel: "+esc(e.message),"err"); }
+  if(b){ b.disabled=false; b.textContent=t0; }
 }
 
 function pantallaCompleta(on){

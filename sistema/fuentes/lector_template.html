@@ -715,17 +715,11 @@ async function descargarMes(anio,mes){
 }
 async function consolidar(fs, nombre, conMes){
   fs=fs.filter(f=>esExcel(f.nombre)); if(!fs.length) return;
-  const out=XLSX.utils.book_new(); const usados=new Set();
-  for(const f of fs){
-    try{ const wb=XLSX.read(await (await f.handle.getFile()).arrayBuffer(),{type:"array"});
-      wb.SheetNames.forEach(h=>{
-        let base=((conMes?f.mes.slice(0,3)+" ":"")+f.nombre.replace(/\.[^.]+$/,"")+" - "+h).replace(/[\\/?*[\]:]/g,"").slice(0,31)||"Hoja", n=base, i=1;
-        while(usados.has(n.toLowerCase())){ i++; n=base.slice(0,28)+"_"+i; } usados.add(n.toLowerCase());
-        XLSX.utils.book_append_sheet(out, wb.Sheets[h], n);
-      });
-    }catch(e){}
-  }
-  XLSX.writeFile(out, nombre);
+  const b=document.activeElement&&document.activeElement.tagName==="BUTTON"?document.activeElement:null, t0=b?b.textContent:""; if(b) b.disabled=true;
+  try{ await MA.consolidarExcel(fs.map(f=>({nombre:f.nombre,carpeta:`${f.anio} › ${f.mes}`,getFile:()=>f.handle.getFile()})), nombre,
+      "Consolidado "+nombre.replace(/^Consolidado_|\.xlsx$/g,"").replace(/_/g," ")+" · __TITULO__", t=>{ if(b) b.textContent=t.slice(0,40)+"…"; }); }
+  catch(e){ alertaTxt("No se pudo armar el Excel: "+e.message); }
+  if(b){ b.disabled=false; b.textContent=t0; }
 }
 
 function pantallaCompleta(on){

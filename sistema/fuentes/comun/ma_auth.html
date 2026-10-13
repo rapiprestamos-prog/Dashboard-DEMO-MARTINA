@@ -259,3 +259,55 @@ window.MA=(function(){
   window.MA.ms365=()=>msOn()&&Object.values(MS.carpetas).some(x=>/^https?:\/\//.test(x||""));
 })();
 </script>
+<script>
+/* ===== Consolidado de Excel conservando el formato =====
+   Copia cada hoja tal como está en el Excel original: anchos de columna, alto de filas, fuentes,
+   colores, bordes, formato de números, celdas combinadas y paneles fijos. Las fórmulas se pasan
+   con su valor (para que no queden apuntando a otros libros). Agrega una hoja "Índice" con enlaces.
+   lista: [{nombre, carpeta, getFile:async()=>File}] */
+(function(){
+  let P=null;
+  const cargar=()=>window.ExcelJS?Promise.resolve(window.ExcelJS):(P=P||new Promise((ok,no)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"; s.onload=()=>ok(window.ExcelJS); s.onerror=()=>no(new Error("No se pudo cargar el armador de Excel (revisa internet).")); document.head.appendChild(s); }));
+  const limpio=s=>String(s).replace(/[\\/?*[\]:]/g," ").replace(/\s+/g," ").trim();
+  const valor=v=>{ if(v&&typeof v==="object"&&!(v instanceof Date)){ if("formula" in v||"sharedFormula" in v) return v.result===undefined?null:(v.result&&typeof v.result==="object"&&v.result.error?null:v.result); } return v; };
+  const copia=o=>o?JSON.parse(JSON.stringify(o)):o;
+  window.MA.consolidarExcel=async(lista,nombreSalida,titulo,progreso)=>{
+    const ExcelJS=await cargar(); const out=new ExcelJS.Workbook(); out.creator="M&A Capital · Dashboard";
+    const ind=out.addWorksheet("Índice",{views:[{showGridLines:false}]});
+    const usados=new Set(["índice"]), filas=[], fallos=[]; let n=0;
+    for(let k=0;k<lista.length;k++){ const it=lista[k]; progreso&&progreso(`Armando ${k+1} de ${lista.length}: ${it.nombre}`);
+      try{
+        let buf=await (await it.getFile()).arrayBuffer();
+        if(!/\.(xlsx|xlsm)$/i.test(it.nombre)){ const wbx=XLSX.read(buf,{type:"array"}); buf=XLSX.write(wbx,{bookType:"xlsx",type:"array"}); }   // .xls/.csv
+        const src=new ExcelJS.Workbook(); await src.xlsx.load(buf);
+        const hojas=src.worksheets.filter(w=>w.state!=="hidden"&&w.state!=="veryHidden"&&w.actualRowCount>0);
+        const base=limpio(it.nombre.replace(/\.[^.]+$/,""));
+        for(const ws of hojas){ n++;
+          let nom=(String(n).padStart(2,"0")+" "+(hojas.length>1?base.slice(0,14).trim()+" · "+limpio(ws.name):base)).slice(0,31).trim(), i=2;
+          while(usados.has(nom.toLowerCase())){ nom=nom.slice(0,28)+" "+(i++); } usados.add(nom.toLowerCase());
+          const dst=out.addWorksheet(nom,{properties:copia(ws.properties),pageSetup:copia(ws.pageSetup),views:copia(ws.views)});
+          if(ws.properties&&ws.properties.tabColor) dst.properties.tabColor=copia(ws.properties.tabColor);
+          (ws.columns||[]).forEach((c,ci)=>{ const d=dst.getColumn(ci+1); if(c.width) d.width=c.width; if(c.hidden) d.hidden=true; if(c.style&&Object.keys(c.style).length) d.style=copia(c.style); });
+          ws.eachRow({includeEmpty:true},(row,ri)=>{ const r=dst.getRow(ri); if(row.height) r.height=row.height; if(row.hidden) r.hidden=true;
+            row.eachCell({includeEmpty:true},(cell,ci)=>{ const c=r.getCell(ci); const v=valor(cell.value); if(v!==null&&v!==undefined) c.value=(v instanceof Date||typeof v!=="object")?v:copia(v); c.style=copia(cell.style)||{}; }); });
+          ((ws.model&&ws.model.merges)||[]).forEach(m=>{ try{ dst.mergeCells(m); }catch(e){} });
+          filas.push([it.carpeta||"",it.nombre,ws.name,nom]);
+        }
+      }catch(e){ fallos.push(it.nombre); }
+    }
+    // Índice
+    ind.columns=[{width:6},{width:16},{width:58},{width:30},{width:34}];
+    ind.mergeCells("A1:E1"); const t=ind.getCell("A1"); t.value=titulo||"Consolidado"; t.font={bold:true,size:16,color:{argb:"FF0F2440"}};
+    ind.mergeCells("A2:E2"); ind.getCell("A2").value=`${filas.length} hoja(s) de ${lista.length-fallos.length} archivo(s) · generado ${new Date().toLocaleString("es-PA")}`; ind.getCell("A2").font={color:{argb:"FF8792A4"},size:10};
+    const h=ind.getRow(4); ["#","Carpeta","Archivo original","Hoja original","Hoja en este libro"].forEach((x,i)=>{ const c=h.getCell(i+1); c.value=x; c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1B3A5C"}}; c.alignment={vertical:"middle"}; }); h.height=20;
+    filas.forEach((f,i)=>{ const r=ind.getRow(5+i); r.getCell(1).value=i+1; r.getCell(2).value=f[0]; r.getCell(3).value=f[1]; r.getCell(4).value=f[2];
+      r.getCell(5).value={text:f[3],hyperlink:"#'"+f[3].replace(/'/g,"''")+"'!A1"}; r.getCell(5).font={color:{argb:"FF1A3FBF"},underline:true};
+      if(i%2) for(let c=1;c<=5;c++) r.getCell(c).fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFF3F5F9"}}; });
+    if(fallos.length){ const r=ind.getRow(6+filas.length); r.getCell(3).value="No se pudieron leer: "+fallos.join(", "); r.getCell(3).font={color:{argb:"FFB03A32"}}; }
+    ind.views=[{state:"frozen",ySplit:4,showGridLines:false}];
+    const blob=new Blob([await out.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=nombreSalida; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+    return {hojas:filas.length,fallos};
+  };
+})();
+</script>
