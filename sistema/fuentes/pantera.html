@@ -100,6 +100,11 @@ button{font-family:inherit}
 .side-top{padding:12px;border-bottom:1px solid var(--border);background:var(--surface-2)}
 .side-top input{width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface);font:inherit;color:var(--text);outline:none}
 .side-top input:focus{border-color:var(--navy)}
+.periodo{display:flex;gap:10px;margin-bottom:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.periodo label{display:flex;flex-direction:column;gap:4px;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.periodo label:first-child{flex:0 0 86px}.periodo label:last-child{flex:1;min-width:0}
+.periodo select{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface);font:inherit;font-size:13.5px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--text);outline:none;cursor:pointer}
+.periodo select:focus{border-color:var(--navy)}
 /* El módulo ocupa exactamente la pantalla: sin desplazar la página, cada panel se desplaza por dentro */
 #viewModulo:not(.hidden),#viewUsuarios:not(.hidden),#viewApp:not(.hidden){display:flex;flex-direction:column;position:fixed;top:16px;right:24px;bottom:16px;left:24px}
 #viewUsuarios>*{flex:none}
@@ -357,7 +362,7 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
     <section id="tab-lector">
       <div class="lector">
         <div class="panel">
-          <div class="side-top"><input type="text" id="buscador" placeholder="🔍  Buscar archivo…"></div>
+          <div class="side-top"><div class="periodo"><label>Año<select id="selAnio"></select></label><label>Mes<select id="selMes"></select></label></div><input type="text" id="buscador" placeholder="🔍  Buscar archivo…"></div>
           <div class="tree" id="tree"></div>
         </div>
         <div class="panel" id="viewer">
@@ -577,6 +582,7 @@ async function escanear(forzar){
   }
   ARCHIVOS=lista;
   construirArbol();
+  pintarPeriodo(); if(SEL){ const f=ARCHIVOS.find(a=>a.ruta===SEL); if(f&&!(f.anio===PER.anio&&(!PER.mes||f.mes===PER.mes))) SEL=null; }
   $("cntArchivos").textContent=ARCHIVOS.length;
   $("hdrSub").textContent=`Carpeta: ${DIR_HANDLE.name}${DIR_HANDLE.auto==="ms365"?" (Microsoft 365)":AUTO?" (acceso directo)":""} · ${ARCHIVOS.length} archivo(s) · actualizado ${new Date().toLocaleTimeString("es-PA",{hour:"2-digit",minute:"2-digit"})}`;
   // aviso si se conectó un mes en vez de la carpeta raíz
@@ -586,7 +592,8 @@ async function escanear(forzar){
   else banner("");
   renderTree();
   if(SEL && !ARCHIVOS.some(a=>a.ruta===SEL)) SEL=null;
-  if(!SEL){ const ult=ultimoArchivo(); if(ult) abrirArchivo(ult.ruta); else $("viewer").innerHTML=vacioViewer(); }
+  if(!SEL){ const fs=PER.anio?(PER.mes?[PER.mes]:mesesOrden(PER.anio)).flatMap(m=>ARBOL[PER.anio][m]||[]):[];
+    const ult=fs.slice().sort((x,y)=>x.nombre.localeCompare(y.nombre,"es"))[0]||ultimoArchivo(); if(ult) abrirArchivo(ult.ruta); else $("viewer").innerHTML=vacioViewer(); }
   else abrirArchivo(SEL);
   generarPantera(forzar);
 }
@@ -628,9 +635,9 @@ function renderTree(){
   const tree=$("tree"); let html="";
   const anios=aniosOrden();
   if(!ABIERTOS.size && anios.length){ ABIERTOS.add("y:"+anios[0]); ABIERTOS.add("m:"+anios[0]+"/"+mesesOrden(anios[0])[0]); }
-  anios.forEach(a=>{
+  anios.filter(a=>q||!PER.anio||a===PER.anio).forEach(a=>{
     let yHtml="", yCount=0;
-    mesesOrden(a).forEach(m=>{
+    mesesOrden(a).filter(m=>q||!PER.mes||m===PER.mes).forEach(m=>{
       const fs=ARBOL[a][m].filter(f=>!q||norm(f.ruta).includes(q)).sort((x,y)=>x.nombre.localeCompare(y.nombre,"es"));
       if(!fs.length) return; yCount+=fs.length;
       const mOpen = q || ABIERTOS.has("m:"+a+"/"+m);
@@ -647,6 +654,26 @@ function renderTree(){
   tree.querySelectorAll(".f-row").forEach(r=>r.onclick=()=>abrirArchivo(r.dataset.r));
 }
 $("buscador").oninput=renderTree;
+/* ---------- Año / Mes ---------- */
+const PER={anio:"",mes:""};
+const mesBonito=m=>{ const i=mesIndex(m); return i<12?MESES[i].charAt(0)+MESES[i].slice(1).toLowerCase():m; };
+function pintarPeriodo(){
+  const anios=aniosOrden();
+  if(!anios.includes(PER.anio)){ PER.anio=anios[0]||""; PER.mes=""; }
+  const meses=PER.anio?mesesOrden(PER.anio):[];
+  if(PER.mes&&!meses.includes(PER.mes)) PER.mes="";
+  if(!PER.mes&&meses.length) PER.mes=meses[0];
+  $("selAnio").innerHTML=anios.map(a=>`<option value="${esc(a)}"${a===PER.anio?" selected":""}>${esc(a)}</option>`).join("");
+  $("selMes").innerHTML=`<option value="">Todos los meses</option>`+meses.slice().reverse().map(m=>`<option value="${esc(m)}"${m===PER.mes?" selected":""}>${esc(mesBonito(m))}</option>`).join("");
+}
+function irPeriodo(){
+  ABIERTOS.clear(); if(PER.anio){ ABIERTOS.add("y:"+PER.anio); (PER.mes?[PER.mes]:mesesOrden(PER.anio)).forEach(m=>ABIERTOS.add("m:"+PER.anio+"/"+m)); }
+  renderTree();
+  const fs=PER.anio?(PER.mes?[PER.mes]:mesesOrden(PER.anio)).flatMap(m=>ARBOL[PER.anio][m]||[]):[];
+  if(fs.length&&!fs.some(f=>f.ruta===SEL)){ const f=fs.slice().sort((x,y)=>x.nombre.localeCompare(y.nombre,"es"))[0]; abrirArchivo(f.ruta); }
+}
+$("selAnio").onchange=e=>{ PER.anio=e.target.value; PER.mes=""; pintarPeriodo(); irPeriodo(); };
+$("selMes").onchange=e=>{ PER.mes=e.target.value; irPeriodo(); };
 
 /* ============================ visor de archivo ============================ */
 const vacioViewer=()=>`<div class="empty"><div class="big">📊</div><b>Elige un archivo</b>Selecciona un Excel del panel izquierdo para verlo aquí, organizado por hojas.</div>`;
