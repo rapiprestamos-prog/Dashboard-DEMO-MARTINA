@@ -50,49 +50,36 @@ Listo. Desde aquí todo se hace en el dashboard.
 
 CÓMO SE USA
 -----------
+Qué hace cada parte
+  · OneDrive: tiene los archivos. El dashboard los lee directo de la carpeta
+    PruebaDashboard sincronizada en la PC de cada usuario. Es de SOLO LECTURA:
+    muestra exactamente lo que hay en la carpeta (AÑO › MES). Si algo se borra
+    o se mueve fuera del año en OneDrive, desaparece del dashboard.
+  · Supabase: SOLO los accesos (correo, contraseña, rol y a qué dashboards
+    entra cada persona). Ningún archivo pasa por Supabase.
+
+Cada usuario
+  · Necesita la carpeta PruebaDashboard compartida y sincronizada en su PC.
+  · La primera vez en cada PC, Chrome pide acceso a la carpeta: elegir
+    "Permitir en cada visita" y no vuelve a preguntar.
+  · "Actualizar" vuelve a leer la carpeta; además se revisa sola cada minuto
+    y al volver a la pestaña.
+
 Roles
-  · Administradora: crea usuarios, maneja permisos, revierte ediciones
-    y quita meses. También puede subir.
-  · Editor: sube información (botón "Subir desde mi carpeta").
-  · Lector: solo ve los reportes.
+  · Administradora: crea usuarios y maneja permisos.
+  · Lector: ve los dashboards que tenga marcados.
 
 Botón "Usuarios" en el inicio (solo administradora)
-  · Cada persona tiene un solo rol (el mismo en todos los dashboards) y
-    se marcan los dashboards a los que entra: Pantera Reportería — Martina,
-    Dashboard de Legal, Dashboard Contabilidad.
+  · Cada persona tiene un solo rol y se marcan los dashboards a los que entra:
+    Pantera Reportería — Martina, Dashboard de Legal, Dashboard Contabilidad.
   · Con su correo y contraseña cada usuario entra solo a los dashboards
     marcados; en el inicio solo ve esas tarjetas.
-  · Crear usuario: correo, nombre, contraseña (mínimo 8) y rol.
-  · Cambiar rol, activar/desactivar, cambiar contraseña o eliminar.
-  · Un usuario desactivado no ve nada aunque tenga contraseña.
+  · Crear usuario, cambiar rol, activar/desactivar, cambiar contraseña o eliminar.
+  · Un usuario desactivado no entra aunque tenga contraseña.
 
-Pestaña "Historial de ediciones" (administradora y editores)
-  · Cada carga queda registrada: quién, cuándo, mes de registro y qué
-    archivos se agregaron, cambiaron o quitaron.
-  · "Revertir" (administradora) deja los archivos como estaban antes de
-    esa edición. La reversión también queda en el historial.
-  · "Quitar mes" (administradora) saca un mes completo. También se
-    puede revertir.
-  · Cada versión de un Excel se guarda aparte en el Storage; por eso
-    revertir recupera el archivo exacto anterior.
-
-Mes de registro
-  · Lo da el último balance cargado. VAL_DATE es solo una etiqueta
-    (por ejemplo "Valuación al 1-abr-26").
+Historial
+  · Lo da OneDrive (papelera e historial de versiones de cada archivo).
 
 Sesión
-  · No se guarda en el navegador: al cerrar o recargar la pestaña hay
-    que volver a entrar.
-  · Se cierra sola después de 10 minutos sin actividad o al pulsar
-    "Salir". Al cerrarse se borran los datos de la pantalla.
-
-Seguridad
-  · El HTML no trae datos, usuarios, contraseñas ni hashes. Sin
-    sesión solo se ve la pantalla de ingreso.
-  · El navegador no puede escribir directo en las tablas. Toda
-    escritura pasa por funciones de la base (ma_edicion_iniciar,
-    ma_edicion_aplicar, ma_edicion_cerrar, ma_edicion_revertir,
-    ma_quitar_mes, ma_usuario_guardar) que revisan el rol y guardan
-    cada edición en el historial.
-  · La llave "anon" que va en el HTML es pública por diseño. Sin una
-    sesión válida y un rol activo no da acceso a nada.
+  · No se guarda en el navegador: se cierra al pulsar "Salir" o tras
+    10 minutos sin actividad.
