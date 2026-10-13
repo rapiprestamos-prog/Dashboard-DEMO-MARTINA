@@ -243,8 +243,18 @@ window.MA=(function(){
     return dirMS(tok,it.parentReference.driveId,it);
   }
 
+  // abierto desde la PC pero sin el permiso del acceso directo (el navegador ya estaba abierto): avisarlo claro
+  async function avisoLocal(){
+    if(location.protocol!=="file:"||document.getElementById("maAvisoLocal")) return;
+    try{ await listarLocal(location.href.replace(/[?#].*$/,"").replace(/[^/]*$/,"")); return; }catch(e){}
+    const d=document.createElement("div"); d.id="maAvisoLocal";
+    d.style.cssText="position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:9998;max-width:760px;width:calc(100% - 32px);background:#fdf6e6;border:1px solid #f0dcaa;border-left:5px solid #b98b2f;border-radius:12px;padding:14px 18px;box-shadow:0 18px 40px rgba(15,23,42,.22);font:13.5px Inter,system-ui,sans-serif;color:#6b4d12;line-height:1.5";
+    d.innerHTML='<b style="display:block;font-size:15px;color:#0f1c2e;margin-bottom:4px">El navegador ya estaba abierto y no tomó el permiso del acceso directo</b>Cierra <b>todas</b> las ventanas de Chrome (y en la bandeja junto al reloj, clic derecho en Chrome → Salir) y vuelve a abrir el acceso directo. Así lee la carpeta solo, sin pedirla.<br><button type="button" style="margin-top:8px;padding:6px 12px;border-radius:8px;border:none;background:#1b3a5c;color:#fff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer">Entendido</button>';
+    d.querySelector("button").onclick=()=>d.remove(); document.body.appendChild(d);
+  }
   window.MA.fuente=async(nombre,o)=>{ o=o||{};
     const l=await fuenteLocal(nombre); if(l) return l;
+    avisoLocal();
     try{ return await fuenteMS(nombre,!!o.gesto); }catch(e){ if(o.gesto) throw e; return null; } };
   window.MA.ms365=()=>msOn()&&Object.values(MS.carpetas).some(x=>/^https?:\/\//.test(x||""));
 })();
