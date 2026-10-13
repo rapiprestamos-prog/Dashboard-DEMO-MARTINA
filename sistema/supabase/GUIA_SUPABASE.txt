@@ -119,19 +119,23 @@ SEGUIMIENTO DE TAREAS
   · Usuarios y jerarquía (administradora): cargo y jefe directo de cada uno.
   · Las tareas se guardan en Supabase (tablas ta_*).
 
-AGENTE LEGAL
-  · Lee la carpeta Legal de OneDrive de cada PC (la primera vez se conecta la
-    carpeta y se elige "Permitir en cada visita").
-  · Cada subcarpeta de Legal = un caso. Una subcarpeta llamada "Plantillas"
-    guarda los Word modelo; los campos a llenar van entre corchetes, por
-    ejemplo [NOMBRE DEL FIRMANTE].
-  · Lee PDF con texto, Word (.docx), Excel y texto. Los PDF escaneados (imagen)
-    no se pueden leer.
-  · Due diligence, Redacción asistida (llena la plantilla conservando su
-    formato, cambios puntuales, validación, guarda en la carpeta del caso o
-    descarga), Cierre de procesos (checklists que crean ustedes), Agente
-    (chat), Comparar, Consultar y Semáforo de riesgo.
-  · En Supabase solo se guardan datos del caso (sociedad, tipo de proceso),
-    checklists y resultados; los documentos se quedan en OneDrive. Para el
-    análisis, el texto de los documentos se envía a la IA de Anthropic a
-    través de la función agente-legal.
+AGENTE LEGAL (mismo diseño que el de Martina)
+  · Dos pestañas: "Agente" (chat que lee los documentos y responde con la cita
+    de dónde sale cada dato) y "Checklists y herramientas legales" (Redacción de
+    contratos, Cierre de procesos, Comparar documentos, Consultar documento y
+    Semáforo de riesgo).
+  · Usa la carpeta Legal de OneDrive de cada PC: botón "Elegir carpeta" arriba
+    (la primera vez se elige "Permitir en cada visita"; después se abre sola).
+    También se pueden subir o arrastrar documentos.
+  · Lee PDF, Word (.docx), Excel y texto. Los PDF escaneados se leen con la IA.
+  · No usa SharePoint, Google Drive ni Outlook: los correos los redacta en
+    pantalla y la persona los envía.
+  · Plantillas, checklists, procesos y reglas se guardan en el navegador de
+    cada PC (como en el de Martina).
+  · La IA pasa por la función agente-legal de Supabase con la clave
+    ANTHROPIC_API_KEY. Sin la clave, el agente avisa que falta.
+  · Si se cambió el archivo agente-legal.ts, hay que volver a publicarlo
+    (Edge Functions → agente-legal → pegar el código nuevo → Deploy).
+  · DASHBOARD CONTABILIDAD y DASHBOARD DE LEGAL: son lectores de carpeta
+    (año › mes) como el de Pantera. Vista por año, vista por mes, Excel (XLS,
+    XLSX), PDF y Word. No usan IA ni guardan nada en Supabase.
