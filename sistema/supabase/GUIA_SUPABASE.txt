@@ -83,3 +83,55 @@ Historial
 Sesión
   · No se guarda en el navegador: se cierra al pulsar "Salir" o tras
     10 minutos sin actividad.
+
+
+=====================================================================
+MÓDULOS "SEGUIMIENTO DE TAREAS" Y "AGENTE LEGAL"
+=====================================================================
+
+PASO A — Base de datos (una vez)
+  Supabase → SQL Editor → pegar completo  modulos_tareas_legal.sql  → Run.
+  (Va DESPUÉS de pantera_supabase.sql. Se puede correr más de una vez.)
+
+PASO B — Función del Agente Legal (una vez)
+  1. Supabase → Edge Functions → Deploy a new function → Via Editor.
+  2. Nombre:  agente-legal   (exactamente así). Pegar  agente-legal.ts  → Deploy.
+  3. Supabase → Edge Functions → Secrets → Add new secret:
+       ANTHROPIC_API_KEY = la clave de la API de Anthropic (console.anthropic.com).
+     Opcional: ANTHROPIC_MODEL para elegir otro modelo.
+  La clave queda solo en Supabase; el HTML nunca la tiene. El uso de la API se
+  paga por consumo en la cuenta de Anthropic.
+
+PASO C — Permisos
+  En el inicio → botón Usuarios: marcar "Agente Legal" y/o "Seguimiento de
+  tareas" a cada persona.
+
+SEGUIMIENTO DE TAREAS
+  · Plan de trabajo (Hoy, Esta semana, Este mes, Este semestre, Todo lo
+    pendiente), Todas por proyecto y carpetas (Empresa / Proyecto / Área, con
+    subcarpetas) con sus indicadores.
+  · Cada tarea: prioridad, estado, responsable, fecha tentativa y real,
+    avances con archivos, comentarios e historial automático.
+  · Importar desde Excel (columnas Tarea, Fecha, Estado, Prioridad,
+    Responsable, Proyecto, Descripción).
+  · Quién ve qué: la administradora ve todo; cada persona ve sus tareas, las
+    que creó y las de quienes tiene debajo en la jerarquía.
+  · Usuarios y jerarquía (administradora): cargo y jefe directo de cada uno.
+  · Las tareas se guardan en Supabase (tablas ta_*).
+
+AGENTE LEGAL
+  · Lee la carpeta Legal de OneDrive de cada PC (la primera vez se conecta la
+    carpeta y se elige "Permitir en cada visita").
+  · Cada subcarpeta de Legal = un caso. Una subcarpeta llamada "Plantillas"
+    guarda los Word modelo; los campos a llenar van entre corchetes, por
+    ejemplo [NOMBRE DEL FIRMANTE].
+  · Lee PDF con texto, Word (.docx), Excel y texto. Los PDF escaneados (imagen)
+    no se pueden leer.
+  · Due diligence, Redacción asistida (llena la plantilla conservando su
+    formato, cambios puntuales, validación, guarda en la carpeta del caso o
+    descarga), Cierre de procesos (checklists que crean ustedes), Agente
+    (chat), Comparar, Consultar y Semáforo de riesgo.
+  · En Supabase solo se guardan datos del caso (sociedad, tipo de proceso),
+    checklists y resultados; los documentos se quedan en OneDrive. Para el
+    análisis, el texto de los documentos se envía a la IA de Anthropic a
+    través de la función agente-legal.
