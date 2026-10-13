@@ -2,7 +2,7 @@
 #   index.html            Inicio (tarjetas)
 #   pantera.html          Pantera Reportería — Martina
 #   contabilidad.html     Dashboard Contabilidad (lector + Reportes específicos)
-#   dashboard-legal.html  Dashboard de Legal (lector)
+#   dashboard-legal.html  Dashboard de Legal (lector + Reportes específicos)
 #   legal.html            Agente Legal
 #   tareas.html           Seguimiento de tareas
 #   usuarios.html         Usuarios y permisos (administradora)
@@ -28,7 +28,7 @@ escribir('index.html',leer('src/inicio.html'))
 escribir('pantera.html',leer('src/pantera.html').replace('__PANTERA_B64__',base64.b64encode(open('reporte_pantera.html','rb').read()).decode()))
 escribir('usuarios.html',leer('src/usuarios.html'))
 rep=leer('src/reportes_conta.html')
-for archivo,titulo,carpeta,modulo,conRep in (('contabilidad.html','Dashboard Contabilidad','Contabilidad','contabilidad',True),('dashboard-legal.html','Dashboard de Legal','Legal','legal',False)):
+for archivo,titulo,carpeta,modulo,conRep in (('contabilidad.html','Dashboard Contabilidad','Contabilidad','contabilidad',True),('dashboard-legal.html','Dashboard de Legal','Legal','legal',True)):
     a=leer('src/lector_template.html').replace('__TITULO__',titulo).replace('__CARPETA__',carpeta).replace('__MODULO__',modulo)
     if conRep:
         a=a.replace('<!--REP_TABS-->','<div class="ltabs"><button class="ltab" data-v="lector" aria-selected="true">📁 Lector de carpeta</button><button class="ltab" data-v="reportes" aria-selected="false">📊 Reportes específicos</button></div>')

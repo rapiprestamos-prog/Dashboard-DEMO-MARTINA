@@ -53,7 +53,7 @@ CÓMO ESTÁ ARMADO (un HTML por módulo)
   index.html            Inicio: solo las tarjetas. Cada tarjeta abre su página.
   pantera.html          Pantera Reportería — Martina
   contabilidad.html     Dashboard Contabilidad (lector + Reportes específicos)
-  dashboard-legal.html  Dashboard de Legal (lector)
+  dashboard-legal.html  Dashboard de Legal (lector + Reportes específicos)
   legal.html            Agente Legal
   tareas.html           Seguimiento de tareas
   usuarios.html         Usuarios y permisos (solo administradora)
@@ -62,11 +62,11 @@ CÓMO ESTÁ ARMADO (un HTML por módulo)
   · La sesión se cierra con "Salir", al cerrar la pestaña o tras 10 minutos sin
     actividad.
 
-REPORTES ESPECÍFICOS (Dashboard Contabilidad)
+REPORTES ESPECÍFICOS (Dashboard Contabilidad y Dashboard de Legal)
   · La administradora arma cada reporte: qué archivos (el nombre contiene…),
     hoja, periodo, columnas, filtros, agrupar y sumar (y una columna por mes).
-  · Se guardan en la carpeta Contabilidad de OneDrive, en el archivo
-    _reportes_dashboard.json; así todos los usuarios ven los mismos reportes.
+  · Se guardan en la carpeta del módulo (Contabilidad o Legal) de OneDrive, en el
+    archivo _reportes_dashboard.json; así todos los usuarios ven los mismos reportes.
     La primera vez que se guarda, Chrome pide permiso para escribir en la carpeta.
   · Los datos salen siempre de los Excel de la carpeta (año › mes). Cada reporte
     se descarga en Excel con la lista de archivos usados.
