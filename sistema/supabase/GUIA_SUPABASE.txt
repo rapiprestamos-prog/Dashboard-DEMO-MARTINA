@@ -56,7 +56,12 @@ Roles
   · Editor: sube información (botón "Subir desde mi carpeta").
   · Lector: solo ve los reportes.
 
-Pestaña "Usuarios" (solo administradora)
+Botón "Usuarios" en el inicio (solo administradora)
+  · Cada persona tiene un solo rol (el mismo en todos los dashboards) y
+    se marcan los dashboards a los que entra: Pantera Reportería — Martina,
+    Dashboard de Legal, Dashboard Contabilidad.
+  · Con su correo y contraseña cada usuario entra solo a los dashboards
+    marcados; en el inicio solo ve esas tarjetas.
   · Crear usuario: correo, nombre, contraseña (mínimo 8) y rol.
   · Cambiar rol, activar/desactivar, cambiar contraseña o eliminar.
   · Un usuario desactivado no ve nada aunque tenga contraseña.
