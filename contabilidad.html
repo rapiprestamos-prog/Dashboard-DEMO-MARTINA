@@ -6,6 +6,7 @@
 <title>Dashboard Contabilidad</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <style>
 :root{
   color-scheme:light;
@@ -324,6 +325,38 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .connect2{max-width:560px;margin:50px auto;text-align:center;padding:36px 30px;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow)}
 .connect2 .big{font-size:42px}
 .connect2 p{color:var(--text-2);line-height:1.6}
+/* Word */
+.docwrap{flex:1;min-height:0;overflow:auto;background:#eef1f5;padding:20px}
+.docpage{max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--border);box-shadow:var(--shadow);padding:48px 56px;font-family:Calibri,"Segoe UI",Arial,sans-serif;font-size:14.5px;line-height:1.55;color:#111}
+.docpage table{border-collapse:collapse;margin:10px 0;max-width:100%}
+.docpage td,.docpage th{border:1px solid #c9d1dc;padding:4px 8px;vertical-align:top}
+.docpage img{max-width:100%}
+.docpage h1,.docpage h2,.docpage h3{color:var(--navy-d);line-height:1.3}
+/* Vista por año / mes */
+.y-row .yn,.m-row .mn{flex:1}
+.y-row.sel,.m-row.sel{background:#eaf0f7;box-shadow:inset 3px 0 0 var(--navy)}
+.vbody{flex:1;min-height:0;overflow:auto;padding:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.kpi .l{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.kpi .v{font-size:20px;font-weight:800;color:var(--navy-d);margin-top:2px}
+.vsec{font-size:12px;font-weight:800;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 8px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px}
+.mcard{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface);cursor:pointer;text-align:left;font:inherit;color:inherit}
+.mcard:hover{border-color:var(--navy);box-shadow:var(--shadow)}
+.mcard b{display:block;font-size:13px;color:var(--navy-d)}
+.mcard .n{font-size:12px;color:var(--text-2);margin-top:3px}
+.mcard .ty{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.mcard .ty span{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2)}
+.mcard.vacio{cursor:default;opacity:.5;background:var(--surface-2)}
+.mcard.vacio:hover{border-color:var(--border);box-shadow:none}
+table.fl{width:100%;border-collapse:collapse;font-size:13px}
+table.fl th{text-align:left;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:6px 8px;border-bottom:2px solid var(--border);position:sticky;top:-14px;background:var(--surface)}
+table.fl td{padding:7px 8px;border-bottom:1px solid var(--grid);vertical-align:middle}
+table.fl tr.cl{cursor:pointer}
+table.fl tr.cl:hover td{background:#eef3fa}
+table.fl .fn{display:flex;align-items:center;gap:8px;word-break:break-word}
+table.fl .r{text-align:right;white-space:nowrap;color:var(--text-2)}
 </style>
 </head>
 <body>
@@ -377,6 +410,13 @@ const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 let DIR_HANDLE=null, ARCHIVOS=[], ARBOL={}, SEL=null;
 const esExcel=n=>/\.(xlsx|xlsm|xls|csv)$/i.test(n);
+const extDe=n=>((n.match(/\.([^.]+)$/)||[])[1]||"").toLowerCase();
+function tipo(n){ const e=extDe(n);
+  if(["xlsx","xlsm","xls","csv"].includes(e)) return "Excel";
+  if(e==="pdf") return "PDF";
+  if(["doc","docx"].includes(e)) return "Word";
+  if(["png","jpg","jpeg","gif","webp"].includes(e)) return "Imagen";
+  return "Otro"; }
 function icono(n){
   const e=(n.match(/\.([^.]+)$/)||[])[1]?.toLowerCase()||"";
   if(e==="csv") return '<span class="f-ic csv">CSV</span>';
@@ -435,8 +475,8 @@ async function escanear(){
   $("hdrSub").textContent=`Carpeta: ${DIR_HANDLE.name} · ${ARCHIVOS.length} archivo(s) · actualizado ${new Date().toLocaleTimeString("es-PA",{hour:"2-digit",minute:"2-digit"})}`;
   renderTree();
   if(!ARCHIVOS.length){ $("viewer").innerHTML=`<div class="empty"><div class="big">📂</div><b>No hay archivos dentro de año › mes</b>La carpeta ${esc(DIR_HANDLE.name)} debe tener carpetas de año (2026) y adentro los meses (AGOSTO…).</div>`; return; }
-  if(SEL && !ARCHIVOS.some(a=>a.ruta===SEL)) SEL=null;
-  if(!SEL){ const u=ultimoArchivo(); if(u) abrirArchivo(u.ruta); } else abrirArchivo(SEL);
+  if(SEL && !existeSel(SEL)) SEL=null;
+  if(!SEL){ const a=aniosOrden()[0]; if(a) abrirVista("y:"+a); } else abrirArchivo(SEL);
 }
 async function verOtro(f){
   const v=$("viewer"); const file=await f.handle.getFile(); const url=URL.createObjectURL(file);
@@ -444,6 +484,15 @@ async function verOtro(f){
   const cab=`<div class="viewer-hdr"><div class="viewer-title"><div class="vt-left"><h2><span class="crumbs"><b>${esc(f.anio)}</b> › ${esc(f.mes)} ›</span> ${esc(f.nombre)}</h2>
     <div class="viewer-meta">${fFecha(f.mod)} · ${fTam(f.size)}</div></div><div class="vt-btns"><a class="btn sm" href="${url}" download="${esc(f.nombre)}">⬇ Archivo</a></div></div></div>`;
   if(ext==="pdf") v.innerHTML=cab+`<iframe class="prev" src="${url}"></iframe>`;
+  else if(ext==="docx"){
+    try{
+      if(!window.mammoth) throw new Error("no se pudo cargar el lector de Word (revisa la conexión a internet)");
+      const r=await mammoth.convertToHtml({arrayBuffer:await file.arrayBuffer()});
+      const html=r.value.trim();
+      v.innerHTML=cab+(html?`<div class="docwrap"><div class="docpage">${html}</div></div>`:`<div class="empty"><div class="big">📄</div><b>Documento sin texto</b>Descarga el archivo para abrirlo.</div>`);
+    }catch(e){ v.innerHTML=cab+`<div class="empty"><div class="big">⚠️</div><b>No se pudo leer el Word</b>${esc(e.message)}</div>`; }
+  }
+  else if(ext==="doc") v.innerHTML=cab+`<div class="empty"><div class="big">📄</div><b>Word 97-2003 (.doc)</b>El navegador no puede mostrar este formato antiguo. Descarga el archivo para abrirlo, o guárdalo como .docx en la carpeta y aquí se verá.</div>`;
   else if(["png","jpg","jpeg","gif","webp"].includes(ext)) v.innerHTML=cab+`<div class="tbl-wrap" style="flex:1;text-align:center;padding:14px"><img src="${url}" style="max-width:100%"></div>`;
   else v.innerHTML=cab+`<div class="empty"><div class="big">📄</div><b>Vista previa no disponible</b>Descarga el archivo para abrirlo.</div>`;
 }
@@ -477,16 +526,20 @@ function renderTree(){
       const fs=ARBOL[a][m].filter(f=>!q||norm(f.ruta).includes(q)).sort((x,y)=>x.nombre.localeCompare(y.nombre,"es"));
       if(!fs.length) return; yCount+=fs.length;
       const mOpen = q || ABIERTOS.has("m:"+a+"/"+m);
-      yHtml+=`<div class="${mOpen?"":"closed"}"><div class="m-row" data-k="m:${esc(a+"/"+m)}"><span class="chev">▼</span>${esc(m)}<span class="pill">${fs.length}</span></div><div class="kids">`+
+      yHtml+=`<div class="${mOpen?"":"closed"}"><div class="m-row${SEL==="m:"+a+"/"+m?" sel":""}" data-k="m:${esc(a+"/"+m)}" title="Ver el mes completo"><span class="chev">▼</span><span class="mn">${esc(m)}</span><span class="pill">${fs.length}</span></div><div class="kids">`+
         fs.map(f=>`<div class="f-row${SEL===f.ruta?" sel":""}" data-r="${esc(f.ruta)}">${icono(f.nombre)}<div><div class="f-name">${esc(f.nombre.replace(/\.(xlsx|xlsm|xls|csv)$/i,""))}</div><div class="f-date">${fFecha(f.mod)} · ${fTam(f.size)}</div></div></div>`).join("")+
         `</div></div>`;
     });
     if(!yCount) return;
     const yOpen = q || ABIERTOS.has("y:"+a);
-    html+=`<div class="${yOpen?"":"closed"}"><div class="y-row" data-k="y:${esc(a)}"><span class="chev">▼</span>📅 ${esc(a)}<span class="pill" style="margin-left:auto">${yCount}</span></div><div class="kids">${yHtml}</div></div>`;
+    html+=`<div class="${yOpen?"":"closed"}"><div class="y-row${SEL==="y:"+a?" sel":""}" data-k="y:${esc(a)}" title="Ver el año completo"><span class="chev">▼</span><span class="yn">📅 ${esc(a)}</span><span class="pill">${yCount}</span></div><div class="kids">${yHtml}</div></div>`;
   });
   tree.innerHTML = html || `<div class="empty" style="padding:24px"><b>Sin resultados</b>Prueba con otro nombre.</div>`;
-  tree.querySelectorAll(".y-row,.m-row").forEach(r=>r.onclick=()=>{ const k=r.dataset.k; ABIERTOS.has(k)?ABIERTOS.delete(k):ABIERTOS.add(k); r.parentElement.classList.toggle("closed"); });
+  tree.querySelectorAll(".y-row,.m-row").forEach(r=>r.onclick=e=>{
+    const k=r.dataset.k, abierto=!r.parentElement.classList.contains("closed");
+    // la flecha solo abre/cierra; el nombre abre la vista del año o del mes
+    if(e.target.classList.contains("chev") || (abierto && SEL===k)){ abierto?ABIERTOS.delete(k):ABIERTOS.add(k); r.parentElement.classList.toggle("closed",abierto); return; }
+    ABIERTOS.add(k); r.parentElement.classList.remove("closed"); abrirVista(k); });
   tree.querySelectorAll(".f-row").forEach(r=>r.onclick=()=>abrirArchivo(r.dataset.r));
 }
 $("buscador").oninput=renderTree;
@@ -494,10 +547,14 @@ $("buscador").oninput=renderTree;
 /* ============================ visor de archivo ============================ */
 const vacioViewer=()=>`<div class="empty"><div class="big">📊</div><b>Elige un archivo</b>Selecciona un Excel del panel izquierdo para verlo aquí, organizado por hojas.</div>`;
 let LIBRO=null;
+function marcarSel(){
+  document.querySelectorAll(".f-row").forEach(r=>r.classList.toggle("sel",r.dataset.r===SEL));
+  document.querySelectorAll(".y-row,.m-row").forEach(r=>r.classList.toggle("sel",r.dataset.k===SEL));
+}
 async function abrirArchivo(ruta){
+  if(/^[ym]:/.test(ruta)) return abrirVista(ruta);
   const f=ARCHIVOS.find(a=>a.ruta===ruta); if(!f) return;
-  SEL=ruta;
-  document.querySelectorAll(".f-row").forEach(r=>r.classList.toggle("sel",r.dataset.r===ruta));
+  SEL=ruta; marcarSel();
   const v=$("viewer");
   v.innerHTML=`<div class="empty"><div class="spin" style="margin:0 auto 12px"></div>Leyendo ${esc(f.nombre)}…</div>`;
   if(!esExcel(f.nombre)){ await verOtro(f); return; }
@@ -594,19 +651,75 @@ function pintarLibro(hoja){
   $("btnBajarArchivo").onclick=async()=>{ const file=await f.handle.getFile(); const a=document.createElement("a"); a.href=URL.createObjectURL(file); a.download=f.nombre; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500); };
   $("btnBajarMes").onclick=()=>descargarMes(f.anio,f.mes);
 }
+function existeSel(k){
+  if(k.startsWith("y:")) return !!ARBOL[k.slice(2)];
+  if(k.startsWith("m:")){ const i=k.indexOf("/"); const a=k.slice(2,i), m=k.slice(i+1); return !!(ARBOL[a]&&ARBOL[a][m]); }
+  return ARCHIVOS.some(a=>a.ruta===k);
+}
+const TIPOS=["Excel","PDF","Word","Imagen","Otro"];
+function conteo(fs){ const c={}; fs.forEach(f=>{ const t=tipo(f.nombre); c[t]=(c[t]||0)+1; }); return c; }
+function tablaArchivos(fs,conMes){
+  const ord=fs.slice().sort((x,y)=>(conMes?mesIndex(x.mes)-mesIndex(y.mes)||x.mes.localeCompare(y.mes):0)||x.nombre.localeCompare(y.nombre,"es"));
+  return `<table class="fl"><thead><tr>${conMes?"<th>Mes</th>":""}<th>Archivo</th><th>Tipo</th><th>Modificado</th><th class="r">Tamaño</th></tr></thead><tbody>`+
+    ord.map(f=>`<tr class="cl" data-r="${esc(f.ruta)}">${conMes?`<td style="white-space:nowrap;font-weight:600;color:var(--text-2)">${esc(f.mes)}</td>`:""}<td><div class="fn">${icono(f.nombre)}<span>${esc(f.nombre)}</span></div></td><td>${tipo(f.nombre)}</td><td style="white-space:nowrap">${fFecha(f.mod)}</td><td class="r">${fTam(f.size)}</td></tr>`).join("")+`</tbody></table>`;
+}
+function kpisHTML(fs,extra){
+  const c=conteo(fs);
+  return `<div class="kpis"><div class="kpi"><div class="l">Archivos</div><div class="v">${fs.length}</div></div>${extra||""}`+
+    TIPOS.filter(t=>c[t]).map(t=>`<div class="kpi"><div class="l">${t}</div><div class="v">${c[t]}</div></div>`).join("")+`</div>`;
+}
+function abrirVista(k){
+  if(!existeSel(k)) return;
+  SEL=k; marcarSel(); pantallaCompleta(false);
+  const v=$("viewer"); const esA=k.startsWith("y:");
+  let a, m, fs, cuerpo, titulo, bajar;
+  if(esA){
+    a=k.slice(2); const meses=mesesOrden(a); fs=meses.flatMap(x=>ARBOL[a][x]);
+    const porIdx={}; meses.forEach(x=>{ const i=mesIndex(x); if(i<12&&!porIdx[i]) porIdx[i]=x; });
+    const extras=meses.filter(x=>mesIndex(x)>=12||porIdx[mesIndex(x)]!==x);
+    const tarjeta=x=>{ const l=ARBOL[a][x], c=conteo(l); return `<button class="mcard" data-k="m:${esc(a+"/"+x)}"><b>${esc(x)}</b><div class="n">${l.length} archivo(s)</div><div class="ty">${TIPOS.filter(t=>c[t]).map(t=>`<span>${t} ${c[t]}</span>`).join("")}</div></button>`; };
+    const grid=MESES.map((nm,i)=>porIdx[i]?tarjeta(porIdx[i]):`<div class="mcard vacio"><b>${nm}</b><div class="n">Sin carpeta</div></div>`).join("")+extras.map(tarjeta).join("");
+    titulo=`<span class="crumbs"><b>${esc(a)}</b> ›</span> Año ${esc(a)}`;
+    cuerpo=kpisHTML(fs,`<div class="kpi"><div class="l">Meses</div><div class="v">${meses.length}</div></div>`)+`<div class="vsec">Meses</div><div class="mgrid">${grid}</div><div class="vsec">Archivos del año</div>`+tablaArchivos(fs,true);
+    bajar=`⬇ Todo ${esc(a)}`;
+  } else {
+    const i=k.indexOf("/"); a=k.slice(2,i); m=k.slice(i+1); fs=ARBOL[a][m];
+    titulo=`<span class="crumbs"><b>${esc(a)}</b> › ${esc(m)} ›</span> ${esc(m)} ${esc(a)}`;
+    cuerpo=kpisHTML(fs)+`<div class="vsec">Archivos del mes</div>`+tablaArchivos(fs,false);
+    bajar=`⬇ Todo ${esc(m)}`;
+  }
+  const nx=fs.filter(f=>esExcel(f.nombre)).length;
+  v.innerHTML=`<div class="viewer-hdr"><div class="viewer-title"><div class="vt-left"><h2>${titulo}</h2>
+      <div class="viewer-meta">${fs.length} archivo(s) · haz clic en un archivo para abrirlo</div></div>
+      <div class="vt-btns"><button class="btn sm" id="btnLista">${document.body.classList.contains("sideoff")?"☰ Lista":"⇤ Lista"}</button>
+      ${nx?`<button class="btn sm pri" id="btnBajarTodo" title="Descargar en un solo Excel los ${nx} Excel de ${esA?"este año":"este mes"}">${bajar}</button>`:""}</div></div></div>
+    <div class="vbody">${cuerpo}</div>`;
+  v.querySelectorAll("tr.cl").forEach(r=>r.onclick=()=>abrirArchivo(r.dataset.r));
+  v.querySelectorAll(".mcard[data-k]").forEach(b=>b.onclick=()=>{ ABIERTOS.add("y:"+a); ABIERTOS.add(b.dataset.k); renderTree(); abrirVista(b.dataset.k); });
+  $("btnLista").onclick=()=>{ const off=!document.body.classList.contains("sideoff"); document.body.classList.toggle("sideoff",off); lsSet(LS+"sideoff",off?"1":""); $("btnLista").textContent=off?"☰ Lista":"⇤ Lista"; };
+  if(nx) $("btnBajarTodo").onclick=()=>esA?descargarAnio(a):descargarMes(a,m);
+}
+async function descargarAnio(anio){
+  const fs=mesesOrden(anio).reverse().flatMap(m=>ARBOL[anio][m]);
+  await consolidar(fs, `Consolidado_${anio}.xlsx`, true);
+}
 async function descargarMes(anio,mes){
   const fs=(ARBOL[anio]||{})[mes]||[]; if(!fs.length) return;
+  await consolidar(fs, `Consolidado_${mes}_${esAnio(anio)?anio:""}.xlsx`.replace(/\s+/g,"_").replace("_.","."), false);
+}
+async function consolidar(fs, nombre, conMes){
+  fs=fs.filter(f=>esExcel(f.nombre)); if(!fs.length) return;
   const out=XLSX.utils.book_new(); const usados=new Set();
   for(const f of fs){
     try{ const wb=XLSX.read(await (await f.handle.getFile()).arrayBuffer(),{type:"array"});
       wb.SheetNames.forEach(h=>{
-        let base=(f.nombre.replace(/\.[^.]+$/,"")+" - "+h).replace(/[\\/?*[\]:]/g,"").slice(0,31)||"Hoja", n=base, i=1;
+        let base=((conMes?f.mes.slice(0,3)+" ":"")+f.nombre.replace(/\.[^.]+$/,"")+" - "+h).replace(/[\\/?*[\]:]/g,"").slice(0,31)||"Hoja", n=base, i=1;
         while(usados.has(n.toLowerCase())){ i++; n=base.slice(0,28)+"_"+i; } usados.add(n.toLowerCase());
         XLSX.utils.book_append_sheet(out, wb.Sheets[h], n);
       });
     }catch(e){}
   }
-  XLSX.writeFile(out, `Consolidado_${mes}_${esAnio(anio)?anio:""}.xlsx`.replace(/\s+/g,"_").replace("_.",".") );
+  XLSX.writeFile(out, nombre);
 }
 
 function pantallaCompleta(on){
