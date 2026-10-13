@@ -1,0 +1,32 @@
+DASHBOARD M&A · ACCESO DIRECTO (lee las carpetas solo, Chrome no pregunta nada)
+==============================================================================
+
+CÓMO FUNCIONA
+  El dashboard sigue en GitHub. Los 7 archivos de la carpeta "Dashboard" son LANZADORES:
+  al abrirlos traen la última versión desde GitHub. Como se abren desde la PC con el acceso
+  directo, cada módulo lee su carpeta de OneDrive sin pedir permiso.
+  Nunca hay que volver a copiarlos: cuando se actualiza GitHub, el acceso directo ya abre lo nuevo.
+
+PRUEBA RÁPIDA (solo Pantera)
+  1. Copia los 7 archivos de la carpeta "Dashboard" dentro de tu carpeta PruebaDashboard (OneDrive).
+  2. Copia la ruta de esa carpeta (clic en la barra de dirección del explorador).
+  3. Escritorio → clic derecho → Nuevo → Acceso directo → pega (cambia RUTA):
+     "C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir="%LOCALAPPDATA%\DashboardMA" --allow-file-access-from-files "RUTA\pantera.html"
+     Nombre: Dashboard M&A → Finalizar.
+  4. Doble clic → entras con tu correo → arriba dice "Carpeta: PruebaDashboard (acceso directo)".
+
+INSTALACIÓN PARA TODOS (cuando la prueba funcione)
+  1. En OneDrive, una carpeta compartida (por ejemplo "Dashboard") con:
+        los 7 archivos de este zip
+        PruebaDashboard\   (Pantera: 2026\AGOSTO\...)
+        Contabilidad\      (2026\AGOSTO\...)
+        Legal\             (2026\AGOSTO\... y una subcarpeta por caso + Plantillas)
+  2. En cada PC, el acceso directo (una sola vez):
+     "C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir="%LOCALAPPDATA%\DashboardMA" --allow-file-access-from-files "%OneDriveCommercial%\Dashboard\index.html"
+
+NOTAS
+  - Si Windows no encuentra Chrome, usa: "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+  - "--user-data-dir" abre un Chrome aparte solo para el dashboard: el permiso especial no toca el Chrome normal.
+  - Hace falta internet (para traer el dashboard de GitHub y entrar con el usuario).
+  - Con el acceso directo las carpetas se LEEN; para GUARDAR (Reportes específicos, Documentos,
+    Redacción) se usa el dashboard en línea: https://rapiprestamos-prog.github.io/Dashboard-DEMO-MARTINA/
