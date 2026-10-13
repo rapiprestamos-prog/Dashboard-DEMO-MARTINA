@@ -57,10 +57,6 @@ Roles
   · Lector: solo ve los reportes.
 
 Pestaña "Usuarios" (solo administradora)
-  · Cada usuario tiene un rol y los módulos/submódulos que puede ver
-    (casillas: Lector de carpeta, Reportería Pantera, Módulo Contable).
-    En la base queda como "martina" + "martina.<submódulo>".
-    Un usuario con solo "martina" (creado antes) ve todos los submódulos.
   · Crear usuario: correo, nombre, contraseña (mínimo 8) y rol.
   · Cambiar rol, activar/desactivar, cambiar contraseña o eliminar.
   · Un usuario desactivado no ve nada aunque tenga contraseña.
