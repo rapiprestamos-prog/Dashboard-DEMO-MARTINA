@@ -159,6 +159,12 @@ AGENTE LEGAL (mismo diseño que el de Martina)
     ANTHROPIC_API_KEY. Sin la clave, el agente avisa que falta.
   · Si se cambió el archivo agente-legal.ts, hay que volver a publicarlo
     (Edge Functions → agente-legal → pegar el código nuevo → Deploy).
+  · Pestaña DOCUMENTOS (Agente Legal): "Documentos guardados" y "Plantillas"
+    (Usar, Ver, Editar, Duplicar, Desactivar). Las plantillas son Word en
+    Legal › Plantillas (campos con {{Campo}} o [CAMPO]) y los documentos hechos
+    se guardan como Word en Legal › Documentos. Al llenar un Word se conserva su
+    formato. La primera vez que se guarda, Chrome pide permiso para escribir en
+    la carpeta Legal.
   · DASHBOARD CONTABILIDAD y DASHBOARD DE LEGAL: son lectores de carpeta
     (año › mes) como el de Pantera. Vista por año, vista por mes, Excel (XLS,
     XLSX), PDF y Word. No usan IA ni guardan nada en Supabase.

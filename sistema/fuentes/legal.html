@@ -1368,6 +1368,8 @@ paintBar();
       if(x.kind==="directory") await walk(x,p+n+"/"); else if(SUPS.test(n)){ try{ out.push({path:p+n,file:await x.getFile()}); }catch(e){} } } }
     await walk(h,""); return out; }
   const firma=l=>l.map(x=>x.path+"|"+x.file.size+"|"+x.file.lastModified).sort().join(";");
+  window.LEGAL_DIR=()=>H;
+  window.LEGAL_RELEER=async()=>{ if(!H) return; const l=await listar(H); FIRMA=firma(l); SH.setFolder(l,H.name); };
   async function usar(h,abrir){ H=h; const l=await listar(h); FIRMA=firma(l); SH.setFolder(l,h.name);
     if(abrir){ const p=SH.pending; SH.pending=null; openDM(p||{}); } }
   const original=SH.chooseFolder.bind(SH);
@@ -1388,3 +1390,276 @@ paintBar();
       else $s("#fchoose").textContent="Abrir carpeta «"+h.name+"»"; }catch(e){} })();
 })();
 </script>
+<style>
+/* ===== Documentos legales (Plantillas + Documentos guardados) ===== */
+#v-doc{height:100%;overflow:auto;background:var(--bg);color:var(--ink);font-family:var(--body)}
+.dx{max-width:1280px;margin:0 auto;padding:24px 28px 60px;display:flex;flex-direction:column;gap:14px}
+.dx-eb{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.dx h1{margin:2px 0 0;font-size:clamp(22px,3vw,28px);font-weight:800}
+.dx-lead{color:var(--muted);margin:4px 0 0;max-width:80ch}
+.dx-tabs{display:flex;gap:0;border-bottom:2px solid var(--accent)}
+.dx-tab{background:var(--sunk);border:0;padding:10px 18px;font-weight:700;color:var(--ink);cursor:pointer;border-radius:6px 6px 0 0;margin-right:4px}
+.dx-tab[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.dx-card{background:var(--surface);border:1px solid var(--line);border-radius:0 0 10px 10px;border-top:0;overflow:hidden}
+.dx-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--line)}
+.dx-bar .mut{color:var(--muted);font-size:13px}
+.dx-b{font-weight:700;background:var(--accent);color:var(--accent-ink);border:0;border-radius:6px;padding:8px 14px;cursor:pointer}
+.dx-b.ok{background:#1f9d55}
+.dx-b.g{background:none;color:var(--accent);border:1px solid var(--line);font-weight:600}
+.dx-b:disabled{opacity:.5;cursor:default}
+.dx table{border-collapse:collapse;width:100%;font-size:14px}
+.dx th{text-align:left;font-weight:700;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--sunk);white-space:nowrap}
+.dx td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.dx td.n{text-align:right}
+.dx td b{font-weight:700}
+.dx .sm{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.dx-acts{white-space:nowrap}
+.dx-acts a{color:#1a3fbf;text-decoration:underline;cursor:pointer;margin-right:9px;font-weight:600}
+.dx-acts a.rojo{color:var(--bad)}
+.dx-pill{display:inline-block;font-size:12px;font-weight:700;padding:1px 9px;border-radius:99px}
+.dx-pill.on{background:#DDF0E3;color:#1F7A3D}.dx-pill.off{background:var(--sunk);color:var(--muted)}
+tr.dx-off td{opacity:.6}
+.dx-vacio{padding:30px 20px;text-align:center;color:var(--muted)}
+.dx-vacio b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+.dx-form{padding:18px;display:flex;flex-direction:column;gap:14px}
+.dx-form h2{margin:0;font-size:18px;font-weight:800}
+.dx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.dx label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);font-weight:600}
+.dx input[type=text],.dx select,.dx textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
+.dx textarea{min-height:320px;resize:vertical;line-height:1.5;font-size:14px}
+.dx input.lleno{border-color:#1f9d55}
+.dx-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.dx-st{font-size:13px;color:var(--muted)}.dx-st.err{color:var(--bad);font-weight:600}.dx-st.okk{color:#1F7A3D;font-weight:600}
+.dx-nota{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:10px 14px;font-weight:600;font-size:13px}
+.dx-paper{background:#fff;color:#111;border:1px solid var(--line);border-radius:8px;padding:34px 44px;max-height:560px;overflow:auto;font-family:Calibri,Arial,sans-serif;font-size:14.5px;line-height:1.6}
+.dx-paper mark{background:#FFE9A8;color:#111;padding:0 3px;border-radius:3px;font-weight:700}
+.dx-paper table{border-collapse:collapse}.dx-paper td{border:1px solid #ccd;padding:4px 8px}
+#dxModal{position:fixed;inset:0;z-index:70;background:rgba(15,26,44,.6);display:flex;align-items:center;justify-content:center;padding:16px}
+#dxModal .box{background:var(--surface);border-radius:12px;width:100%;max-width:980px;max-height:94vh;display:flex;flex-direction:column;gap:10px;padding:18px}
+#dxModal .box h2{margin:0;font-size:18px}
+#dxModal .dx-paper{max-height:none;flex:1;min-height:0}
+</style>
+<script>
+/* ===== Documentos legales =====
+   Las plantillas y los documentos son archivos Word dentro de la carpeta Legal de OneDrive:
+     Legal › Plantillas  (los modelos; los campos van entre llaves dobles {{Finca}} o entre corchetes [FINCA])
+     Legal › Documentos  (lo que se genera a partir de una plantilla)
+   Los datos de cada uno (tipo, estado, valores usados) se guardan en un archivo .json dentro de esa misma carpeta.
+   Al llenar un Word se conserva su formato. No se inventa ningún dato: lo que no se llena queda como estaba. */
+(function(){
+  const $d=id=>document.getElementById(id);
+  const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const W="http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const RX=()=>/\{\{\s*([^{}\n]{1,80}?)\s*\}\}|\[([^\[\]\n]{1,80})\]/g;
+  const DIR_P="Plantillas", DIR_D="Documentos", META_P="_plantillas.json", META_D="_documentos.json";
+  const fF=t=>{ if(!t) return "—"; const d=new Date(t), z=n=>String(n).padStart(2,"0"); return z(d.getDate())+"/"+z(d.getMonth()+1)+"/"+d.getFullYear()+" "+z(d.getHours())+":"+z(d.getMinutes()); };
+  const yo=()=>((window.MA&&MA.ctx())||{}).email||"";
+  const limpio=s=>String(s||"").replace(/[\\/:*?"<>|]+/g,"").replace(/\s+/g," ").trim().slice(0,120);
+  let TAB="docs", PL=[], DOCS=[], MP={}, MD={}, LEYENDO=false;
+
+  /* ---------- pestaña en la barra de arriba ---------- */
+  const nav=document.getElementById("tabs");
+  const tb=document.createElement("button"); tb.type="button"; tb.dataset.v="doc"; tb.setAttribute("aria-selected","false"); tb.textContent="Documentos"; nav.appendChild(tb);
+  const go0=SH.go.bind(SH);
+  SH.go=function(v){ go0(v==="doc"?"__":v); this.view=v; $s("#v-doc").hidden=v!=="doc"; $s("#tabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v)); if(v==="doc") cargar(); };
+
+  /* ---------- carpeta ---------- */
+  const raiz=()=>window.LEGAL_DIR?window.LEGAL_DIR():null;
+  async function sub(nombre,crear){ const r=raiz(); if(!r) return null; try{ return await r.getDirectoryHandle(nombre,crear?{create:true}:undefined); }catch(e){ if(e&&e.name==="NotFoundError") return null; throw e; } }
+  async function permisoEscritura(){ const r=raiz(); if(!r) throw new Error("Primero elige la carpeta Legal (botón «Elegir carpeta» arriba).");
+    let p=await r.queryPermission({mode:"readwrite"}); if(p!=="granted") p=await r.requestPermission({mode:"readwrite"});
+    if(p!=="granted") throw new Error("Chrome no dio permiso para guardar en la carpeta Legal. Vuelve a intentar y elige «Permitir»."); }
+  async function leerJSON(d,n){ if(!d) return {}; try{ return JSON.parse(await (await (await d.getFileHandle(n)).getFile()).text())||{}; }catch(e){ return {}; } }
+  async function escribir(d,n,data){ const fh=await d.getFileHandle(n,{create:true}); const w=await fh.createWritable(); await w.write(data); await w.close(); }
+  async function listarDocx(d){ const out=[]; if(!d) return out; for await (const [n,h] of d.entries()){ if(h.kind!=="file"||!/\.docx$/i.test(n)||n.startsWith("~$")) continue; const f=await h.getFile(); out.push({nombre:n,handle:h,mod:f.lastModified,size:f.size}); } return out.sort((a,b)=>a.nombre.localeCompare(b.nombre,"es")); }
+
+  /* ---------- Word ---------- */
+  async function abrirDocx(buf){ const zip=await JSZip.loadAsync(buf); const f=zip.file("word/document.xml"); if(!f) throw new Error("no es un Word válido (.docx)");
+    const doc=new DOMParser().parseFromString(await f.async("string"),"application/xml"); return {zip,doc,ps:[...doc.getElementsByTagNameNS(W,"p")]}; }
+  const textoP=p=>{ let s=""; p.querySelectorAll("*").forEach(n=>{ if(n.namespaceURI!==W) return; if(n.localName==="t") s+=n.textContent; else if(n.localName==="tab") s+="\t"; else if(n.localName==="br") s+="\n"; }); return s; };
+  async function textoDocx(buf){ const {ps}=await abrirDocx(buf); return ps.map(textoP).join("\n"); }
+  function camposDe(texto){ const s=[]; for(const m of String(texto).matchAll(RX())){ const k=(m[1]||m[2]).trim(); if(k&&!s.includes(k)) s.push(k); } return s; }
+  async function llenarDocx(buf,valores){
+    const {zip,doc,ps}=await abrirDocx(buf);
+    const llenar=s=>s.replace(RX(),(m,a,b)=>{ const v=valores[(a||b).trim()]; return v!=null&&String(v).trim()!==""?String(v):m; });
+    ps.forEach(p=>{ const ts=[...p.getElementsByTagNameNS(W,"t")]; if(!ts.length) return;
+      ts.forEach(t=>{ const n=llenar(t.textContent); if(n!==t.textContent){ t.textContent=n; t.setAttribute("xml:space","preserve"); } });
+      const full=ts.map(t=>t.textContent).join(""), lleno=llenar(full);   // campo partido en varios tramos
+      if(lleno!==full){ ts[0].textContent=lleno; ts[0].setAttribute("xml:space","preserve"); ts.slice(1).forEach(t=>t.textContent=""); } });
+    zip.file("word/document.xml",new XMLSerializer().serializeToString(doc));
+    return zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+  }
+  function docxDeTexto(texto){
+    const x=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,"");
+    const body=String(texto).replace(/\r/g,"").split("\n").map(l=>`<w:p><w:pPr><w:spacing w:after="120"/><w:jc w:val="both"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">${x(l)}</w:t></w:r></w:p>`).join("");
+    const z=new JSZip();
+    z.file("[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+    z.file("_rels/.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    z.file("word/document.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="${W}"><w:body>${body}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+    return z.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+  }
+  async function html(blobOBuf,marcar){ const ab=blobOBuf instanceof Blob?await blobOBuf.arrayBuffer():blobOBuf; const r=await mammoth.convertToHtml({arrayBuffer:ab}); let h=r.value||"<p>(sin texto)</p>";
+    if(marcar) h=h.replace(/\{\{\s*([^{}<\n]{1,80}?)\s*\}\}|\[([^\[\]<\n]{1,80})\]/g,m=>`<mark>${m}</mark>`); return h; }
+  function bajar(blob,nombre){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=nombre; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+  function modal(titulo,cuerpo,extra){ cerrarModal(); const m=document.createElement("div"); m.id="dxModal";
+    m.innerHTML=`<div class="box"><div class="dx-row" style="justify-content:space-between"><h2>${esc(titulo)}</h2><div class="dx-row">${extra||""}<button class="dx-b g" id="dxCerrar">Cerrar</button></div></div><div class="dx-paper">${cuerpo}</div></div>`;
+    document.body.appendChild(m); $d("dxCerrar").onclick=cerrarModal; m.onclick=e=>{ if(e.target===m) cerrarModal(); }; }
+  function cerrarModal(){ const m=$d("dxModal"); if(m) m.remove(); }
+  addEventListener("keydown",e=>{ if(e.key==="Escape") cerrarModal(); });
+
+  /* ---------- leer todo ---------- */
+  async function cargar(){
+    const v=$d("dxCuerpo"); if(!v) return;
+    if(!raiz()){ v.innerHTML=`<div class="dx-vacio"><b>Elige la carpeta Legal</b>Pulsa «Elegir carpeta» arriba. Las plantillas van en Legal › Plantillas y los documentos en Legal › Documentos.</div>`; return; }
+    if(LEYENDO) return; LEYENDO=true;
+    try{ const dp=await sub(DIR_P), dd=await sub(DIR_D);
+      MP=await leerJSON(dp,META_P); MD=await leerJSON(dd,META_D); MP.plantillas=MP.plantillas||{}; MD.documentos=MD.documentos||{};
+      PL=await listarDocx(dp); for(const p of PL){ try{ p.campos=camposDe(await textoDocx(await (await p.handle.getFile()).arrayBuffer())); }catch(e){ p.campos=[]; p.error=e.message; } }
+      DOCS=await listarDocx(dd);
+    }catch(e){ v.innerHTML=`<div class="dx-vacio"><b>No se pudo leer la carpeta</b>${esc(e.message)}</div>`; LEYENDO=false; return; }
+    LEYENDO=false; pintar();
+  }
+  const metaP=n=>MP.plantillas[n]||{};
+  const nombreP=n=>n.replace(/\.docx$/i,"");
+  async function guardarMetaP(){ const d=await sub(DIR_P,true); await escribir(d,META_P,JSON.stringify(MP,null,2)); }
+  async function guardarMetaD(){ const d=await sub(DIR_D,true); await escribir(d,META_D,JSON.stringify(MD,null,2)); }
+  async function refrescarCarpeta(){ try{ if(window.LEGAL_RELEER) await window.LEGAL_RELEER(); }catch(e){} await cargar(); }
+
+  /* ---------- pantallas ---------- */
+  function pintar(){
+    document.querySelectorAll(".dx-tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===TAB));
+    TAB==="plantillas"?tablaPlantillas():tablaDocs();
+  }
+  function tablaPlantillas(){
+    $d("dxCuerpo").innerHTML=`<div class="dx-bar"><button class="dx-b ok" id="dxNuevaP">Nueva plantilla</button><button class="dx-b g" id="dxSubirP">Subir modelo Word</button>
+      <span class="mut">Los campos se escriben entre llaves dobles, por ejemplo <b>{{Finca}}</b>, o entre corchetes, <b>[NOMBRE DEL FIRMANTE]</b>. Puedes pegar texto copiado de Word.</span></div>
+      ${PL.length?`<table><thead><tr><th>Plantilla</th><th>Tipo</th><th class="n">Campos</th><th>Modelo original</th><th>Estado</th><th>Última modificación</th><th></th></tr></thead><tbody>
+      ${PL.map((p,i)=>{ const m=metaP(p.nombre), on=m.estado!=="inactiva"; return `<tr class="${on?"":"dx-off"}"><td><b>${esc(nombreP(p.nombre))}</b>${m.descripcion?`<span class="sm">${esc(m.descripcion)}</span>`:""}${p.error?`<span class="sm" style="color:var(--bad)">${esc(p.error)}</span>`:""}</td>
+        <td>${esc(m.tipo||"—")}</td><td class="n">${p.campos.length}</td><td class="dx-acts">${m.origen==="texto"?"— ":`<a data-a="bajarP" data-i="${i}">${esc(p.nombre)}</a>`}<a data-a="subirP" data-i="${i}">Subir</a></td>
+        <td><span class="dx-pill ${on?"on":"off"}">${on?"Activa":"Inactiva"}</span></td><td>${fF(m.modificado?Date.parse(m.modificado):p.mod)}<span class="sm">${esc(m.por||"")}</span></td>
+        <td class="dx-acts">${on?`<a data-a="usar" data-i="${i}">Usar</a>`:""}<a data-a="verP" data-i="${i}">Ver</a><a data-a="editarP" data-i="${i}">Editar</a><a data-a="duplicarP" data-i="${i}">Duplicar</a><a data-a="estadoP" data-i="${i}">${on?"Desactivar":"Activar"}</a></td></tr>`; }).join("")}</tbody></table>`
+      :`<div class="dx-vacio"><b>Todavía no hay plantillas</b>Crea una con «Nueva plantilla» o sube un Word modelo. Se guardan en Legal › Plantillas.</div>`}`;
+    $d("dxNuevaP").onclick=()=>editorPlantilla(null);
+    $d("dxSubirP").onclick=()=>subirModelo(null);
+    $d("dxCuerpo").querySelectorAll("a[data-a]").forEach(a=>a.onclick=()=>accionP(a.dataset.a,PL[+a.dataset.i],a));
+  }
+  function tablaDocs(){
+    const filas=DOCS.map((d,i)=>{ const m=MD.documentos[d.nombre]||{}; return `<tr><td><b>${esc(nombreP(d.nombre))}</b></td><td>${esc(m.plantilla?nombreP(m.plantilla):"—")}</td><td>${esc(m.por||"—")}</td><td>${fF(m.modificado?Date.parse(m.modificado):d.mod)}</td>
+      <td class="dx-acts"><a data-a="verD" data-i="${i}">Ver</a><a data-a="bajarD" data-i="${i}">Descargar</a>${m.plantilla&&PL.some(p=>p.nombre===m.plantilla)?`<a data-a="editarD" data-i="${i}">Editar</a><a data-a="duplicarD" data-i="${i}">Duplicar</a>`:""}<a class="rojo" data-a="borrarD" data-i="${i}">Eliminar</a></td></tr>`; }).join("");
+    $d("dxCuerpo").innerHTML=`<div class="dx-bar"><span class="mut">Documentos hechos con una plantilla. Se guardan como Word en Legal › Documentos.</span>${PL.some(p=>metaP(p.nombre).estado!=="inactiva")?`<button class="dx-b" id="dxNuevoD" style="margin-left:auto">＋ Nuevo documento</button>`:""}</div>
+      ${DOCS.length?`<table><thead><tr><th>Documento</th><th>Plantilla</th><th>Hecho por</th><th>Última modificación</th><th></th></tr></thead><tbody>${filas}</tbody></table>`
+      :`<div class="dx-vacio"><b>Todavía no hay documentos</b>Ve a «Plantillas» y pulsa «Usar» en la que necesites.</div>`}`;
+    const nd=$d("dxNuevoD"); if(nd) nd.onclick=()=>{ TAB="plantillas"; pintar(); };
+    $d("dxCuerpo").querySelectorAll("a[data-a]").forEach(a=>a.onclick=()=>accionD(a.dataset.a,DOCS[+a.dataset.i],a));
+  }
+  const confirmar=(a,txt)=>{ if(a.dataset.ok==="1") return true; const t=a.textContent; a.dataset.ok="1"; a.textContent=txt; setTimeout(()=>{ a.dataset.ok=""; a.textContent=t; },4000); return false; };
+
+  async function accionP(acc,p,a){
+    try{
+      if(acc==="usar") return formulario(p,{},null);
+      if(acc==="verP") return modal(nombreP(p.nombre),await html(await (await p.handle.getFile()).arrayBuffer(),true));
+      if(acc==="bajarP") return bajar(await p.handle.getFile(),p.nombre);
+      if(acc==="subirP") return subirModelo(p);
+      if(acc==="editarP") return editorPlantilla(p);
+      if(acc==="duplicarP"){ await permisoEscritura(); const d=await sub(DIR_P,true); let n=nombreP(p.nombre)+" (copia)", k=2; while(PL.some(x=>x.nombre===n+".docx")) n=nombreP(p.nombre)+" (copia "+(k++)+")";
+        await escribir(d,n+".docx",await p.handle.getFile()); MP.plantillas[n+".docx"]={...metaP(p.nombre),modificado:new Date().toISOString(),por:yo()}; await guardarMetaP(); return refrescarCarpeta(); }
+      if(acc==="estadoP"){ await permisoEscritura(); const m=metaP(p.nombre); MP.plantillas[p.nombre]={...m,estado:m.estado==="inactiva"?"activa":"inactiva",modificado:new Date().toISOString(),por:yo()}; await guardarMetaP(); return cargar(); }
+    }catch(e){ aviso(e.message); }
+  }
+  async function accionD(acc,d,a){
+    try{ const m=MD.documentos[d.nombre]||{};
+      if(acc==="verD") return modal(nombreP(d.nombre),await html(await (await d.handle.getFile()).arrayBuffer(),true));
+      if(acc==="bajarD") return bajar(await d.handle.getFile(),d.nombre);
+      if(acc==="editarD") return formulario(PL.find(p=>p.nombre===m.plantilla),m.valores||{},d.nombre);
+      if(acc==="duplicarD") return formulario(PL.find(p=>p.nombre===m.plantilla),m.valores||{},null);
+      if(acc==="borrarD"){ if(!confirmar(a,"¿Seguro? Pulsa otra vez")) return; await permisoEscritura(); const dd=await sub(DIR_D); await dd.removeEntry(d.nombre); delete MD.documentos[d.nombre]; await guardarMetaD(); return refrescarCarpeta(); }
+    }catch(e){ aviso(e.message); }
+  }
+  function aviso(t){ const c=$d("dxCuerpo"); c.insertAdjacentHTML("afterbegin",`<div class="dx-nota" style="margin:10px 14px;background:#F8DEDB;color:var(--bad)">${esc(t)}</div>`); }
+
+  /* ---------- Usar una plantilla (o editar un documento guardado) ---------- */
+  async function formulario(p,valores,archivoDoc){
+    if(!p) return aviso("La plantilla de este documento ya no está en Legal › Plantillas.");
+    const buf=await (await p.handle.getFile()).arrayBuffer(); const campos=p.campos||camposDe(await textoDocx(buf));
+    const nom0=archivoDoc?nombreP(archivoDoc):nombreP(p.nombre)+" - "+new Date().toLocaleDateString("es-PA").replace(/\//g,"-");
+    $d("dxCuerpo").innerHTML=`<div class="dx-form"><div class="dx-row" style="justify-content:space-between"><h2>${archivoDoc?"Editar documento":"Nuevo documento"} · ${esc(nombreP(p.nombre))}</h2><button class="dx-b g" id="dxVolver">← Volver</button></div>
+      <label>Nombre del documento<input type="text" id="dxNom" value="${esc(nom0)}"${archivoDoc?" disabled":""}></label>
+      ${campos.length?`<div class="dx-grid">${campos.map((c,i)=>`<label>${esc(c)}<input type="text" data-c="${esc(c)}" value="${esc(valores[c]||"")}"></label>`).join("")}</div>`:`<div class="dx-nota">Esta plantilla no tiene campos entre {{ }} o [ ].</div>`}
+      <div class="dx-st">Lo que dejes vacío queda en el documento tal como está en la plantilla.</div>
+      <div class="dx-row"><button class="dx-b g" id="dxPrev">👁 Vista previa</button><button class="dx-b" id="dxGuardar">💾 Guardar en Legal › Documentos</button><button class="dx-b g" id="dxBajar">⬇ Descargar Word</button><span class="dx-st" id="dxSt"></span></div>
+      <div id="dxPrevBox"></div></div>`;
+    const vals=()=>{ const o={}; document.querySelectorAll("#dxCuerpo input[data-c]").forEach(x=>{ o[x.dataset.c]=x.value.trim(); x.classList.toggle("lleno",!!x.value.trim()); }); return o; };
+    document.querySelectorAll("#dxCuerpo input[data-c]").forEach(x=>x.oninput=vals); vals();
+    $d("dxVolver").onclick=()=>{ TAB=archivoDoc?"docs":"plantillas"; pintar(); };
+    const generar=()=>llenarDocx(buf.slice(0),vals());
+    const st=(t,c)=>{ $d("dxSt").textContent=t; $d("dxSt").className="dx-st"+(c?" "+c:""); };
+    $d("dxPrev").onclick=async()=>{ try{ $d("dxPrevBox").innerHTML=`<div class="dx-paper">${await html(await generar(),true)}</div>`; }catch(e){ st(e.message,"err"); } };
+    $d("dxBajar").onclick=async()=>{ try{ bajar(await generar(),(limpio($d("dxNom").value)||"documento")+".docx"); }catch(e){ st(e.message,"err"); } };
+    $d("dxGuardar").onclick=async()=>{
+      try{ const nom=archivoDoc||((limpio($d("dxNom").value)||"documento")+".docx");
+        if(!archivoDoc&&DOCS.some(d=>d.nombre.toLowerCase()===nom.toLowerCase())) return st("Ya existe un documento con ese nombre. Cámbiale el nombre.","err");
+        st("Guardando…"); await permisoEscritura(); const dd=await sub(DIR_D,true);
+        await escribir(dd,nom,await generar());
+        const ant=MD.documentos[nom]||{}; MD.documentos[nom]={plantilla:p.nombre,valores:vals(),creado:ant.creado||new Date().toISOString(),por:ant.por||yo(),modificado:new Date().toISOString(),modificadoPor:yo()};
+        await guardarMetaD(); st("✓ Guardado en Legal › Documentos › "+nom,"okk"); archivoDoc=nom; $d("dxNom").disabled=true; TAB="docs"; await refrescarCarpeta();
+      }catch(e){ st(e.message,"err"); } };
+  }
+
+  /* ---------- Nueva / editar plantilla ---------- */
+  async function editorPlantilla(p){
+    const m=p?metaP(p.nombre):{}; let texto="";
+    if(p){ try{ texto=await textoDocx(await (await p.handle.getFile()).arrayBuffer()); }catch(e){} }
+    const esWord=p&&m.origen!=="texto";
+    $d("dxCuerpo").innerHTML=`<div class="dx-form"><div class="dx-row" style="justify-content:space-between"><h2>${p?"Editar plantilla":"Nueva plantilla"}</h2><button class="dx-b g" id="dxVolver">← Volver</button></div>
+      <div class="dx-grid"><label>Nombre<input type="text" id="dxPN" value="${esc(p?nombreP(p.nombre):"")}" placeholder="Ej.: Contrato de promesa de compraventa"></label>
+        <label>Tipo<input type="text" id="dxPT" value="${esc(m.tipo||"")}" placeholder="Ej.: Contrato, Minuta, Carta, Memorando" list="dxTipos"></label>
+        <label>Descripción (opcional)<input type="text" id="dxPD" value="${esc(m.descripcion||"")}"></label></div>
+      <datalist id="dxTipos">${[...new Set(Object.values(MP.plantillas).map(x=>x.tipo).filter(Boolean))].map(t=>`<option value="${esc(t)}">`).join("")}</datalist>
+      ${esWord?`<div class="dx-nota">Esta plantilla es un Word con su propio formato. Si cambias el texto aquí, el Word se rehace con formato simple. Para conservar el formato, edita el Word en la carpeta Legal › Plantillas o usa «Subir» para reemplazarlo; aquí puedes cambiar solo nombre, tipo y descripción.</div>`:""}
+      <label>Texto de la plantilla <span style="font-weight:500">— campos con {{Campo}} o [CAMPO]</span><textarea id="dxPX"${esWord?" readonly":""}>${esc(texto)}</textarea></label>
+      ${esWord?`<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="dxPXok"> Quiero cambiar el texto aquí (el Word queda con formato simple)</label>`:""}
+      <div class="dx-st" id="dxCampos"></div>
+      <div class="dx-row"><button class="dx-b" id="dxPG">💾 Guardar en Legal › Plantillas</button><span class="dx-st" id="dxSt"></span></div></div>`;
+    const cnt=()=>{ const c=camposDe($d("dxPX").value); $d("dxCampos").textContent=c.length?`${c.length} campo(s): ${c.join(", ")}`:"Sin campos todavía."; };
+    $d("dxPX").oninput=cnt; cnt();
+    if($d("dxPXok")) $d("dxPXok").onchange=e=>{ $d("dxPX").readOnly=!e.target.checked; };
+    $d("dxVolver").onclick=()=>{ TAB="plantillas"; pintar(); };
+    $d("dxPG").onclick=async()=>{
+      const st=(t,c)=>{ $d("dxSt").textContent=t; $d("dxSt").className="dx-st"+(c?" "+c:""); };
+      try{ const n=limpio($d("dxPN").value); if(!n) return st("Ponle un nombre a la plantilla.","err");
+        const archivo=n+".docx"; if((!p||p.nombre!==archivo)&&PL.some(x=>x.nombre.toLowerCase()===archivo.toLowerCase())) return st("Ya hay una plantilla con ese nombre.","err");
+        const cambiarTexto=!esWord||($d("dxPXok")&&$d("dxPXok").checked);
+        if(!p&&!$d("dxPX").value.trim()) return st("Escribe o pega el texto de la plantilla.","err");
+        st("Guardando…"); await permisoEscritura(); const d=await sub(DIR_P,true);
+        if(cambiarTexto) await escribir(d,archivo,await docxDeTexto($d("dxPX").value));
+        else if(p.nombre!==archivo) await escribir(d,archivo,await p.handle.getFile());
+        if(p&&p.nombre!==archivo){ try{ await d.removeEntry(p.nombre); }catch(e){} delete MP.plantillas[p.nombre]; }
+        MP.plantillas[archivo]={...m,tipo:$d("dxPT").value.trim(),descripcion:$d("dxPD").value.trim(),estado:m.estado||"activa",origen:cambiarTexto?"texto":(m.origen||"word"),modificado:new Date().toISOString(),por:yo()};
+        await guardarMetaP(); TAB="plantillas"; await refrescarCarpeta();
+      }catch(e){ st(e.message,"err"); } };
+  }
+  function subirModelo(p){
+    const inp=document.createElement("input"); inp.type="file"; inp.accept=".docx";
+    inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return;
+      try{ await abrirDocx(await f.arrayBuffer()); await permisoEscritura(); const d=await sub(DIR_P,true);
+        const archivo=p?p.nombre:limpio(f.name.replace(/\.docx$/i,""))+".docx";
+        if(!p&&PL.some(x=>x.nombre.toLowerCase()===archivo.toLowerCase())) return aviso("Ya hay una plantilla llamada "+archivo+". Usa «Subir» en esa fila para reemplazarla.");
+        await escribir(d,archivo,f);
+        MP.plantillas[archivo]={...(p?metaP(p.nombre):{estado:"activa"}),origen:"word",modificado:new Date().toISOString(),por:yo()};
+        await guardarMetaP(); await refrescarCarpeta();
+      }catch(e){ aviso("No se pudo subir: "+e.message); } };
+    inp.click();
+  }
+
+  /* ---------- montar ---------- */
+  const v=document.createElement("div"); v.id="v-doc"; v.hidden=true;
+  v.innerHTML=`<div class="dx"><div><span class="dx-eb">Legal · Documentos</span><h1>Documentos legales</h1>
+    <p class="dx-lead">Plantillas del equipo y documentos hechos con ellas. Todo queda como Word en la carpeta Legal de OneDrive.</p></div>
+    <div><div class="dx-tabs"><button class="dx-tab" data-t="docs" aria-selected="true">Documentos guardados</button><button class="dx-tab" data-t="plantillas" aria-selected="false">Plantillas</button></div>
+    <div class="dx-card" id="dxCuerpo"></div></div></div>`;
+  document.getElementById("views").appendChild(v);
+  v.querySelectorAll(".dx-tab").forEach(b=>b.onclick=()=>{ TAB=b.dataset.t; pintar(); });
+  SH.onFolder(()=>{ if(SH.view==="doc") cargar(); });
+})();
+</script>
+
