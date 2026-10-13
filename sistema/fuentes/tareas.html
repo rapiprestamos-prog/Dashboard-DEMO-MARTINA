@@ -223,7 +223,7 @@ const ordenar=(a,b)=>{ // fecha tentativa; mismo día → mayor prioridad; sin f
 /* ============================ arranque ============================ */
 async function iniciar(){
   try{ await cargar(); }
-  catch(e){ $("sinSesion").innerHTML=`<b>No se pudo abrir Seguimiento de tareas</b>${esc(e.message)}<br><br>Si dice que no existe la tabla, falta correr <b>modulos_tareas_legal.sql</b> en Supabase.`; return; }
+  catch(e){ $("sinSesion").innerHTML=`<b>No se pudo abrir Seguimiento de tareas</b>${esc(e.message)}<br><br>Si dice que no existe la tabla, falta correr <b>BASE_DE_DATOS_FINAL.sql</b> en Supabase.`; return; }
   $("sinSesion").classList.add("hidden"); $("app").classList.remove("hidden");
   $("secAdmin").classList.toggle("hidden",ROL!=="admin");
   document.querySelectorAll(".nav[data-v]").forEach(b=>b.onclick=()=>ir({v:b.dataset.v}));

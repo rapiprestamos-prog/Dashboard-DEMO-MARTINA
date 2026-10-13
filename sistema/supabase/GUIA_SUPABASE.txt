@@ -8,7 +8,7 @@ Se hace una sola vez. Son 3 pasos.
 PASO 1 — Base de datos (tablas, roles, historial, reversión, seguridad)
 -----------------------------------------------------------------------
 1. Supabase → SQL Editor → New query.
-2. Pegar completo el archivo  pantera_supabase.sql  y pulsar Run.
+2. Pegar completo el archivo  BASE_DE_DATOS_FINAL.sql  y pulsar Run.
 3. Debe terminar con "Success. No rows returned".
 
    · Se puede correr más de una vez: no borra datos.
@@ -113,8 +113,8 @@ MÓDULOS "SEGUIMIENTO DE TAREAS" Y "AGENTE LEGAL"
 =====================================================================
 
 PASO A — Base de datos (una vez)
-  Supabase → SQL Editor → pegar completo  modulos_tareas_legal.sql  → Run.
-  (Va DESPUÉS de pantera_supabase.sql. Se puede correr más de una vez.)
+  Supabase → SQL Editor → (ya incluido en BASE_DE_DATOS_FINAL.sql del PASO 1; no hay que correr nada más)
+  (Los archivos viejos pantera_supabase.sql y modulos_tareas_legal.sql quedaron en supabase/anteriores/ y ya no se usan.)
 
 PASO B — Función del Agente Legal (una vez)
   1. Supabase → Edge Functions → Deploy a new function → Via Editor.
@@ -148,7 +148,7 @@ AGENTE LEGAL (mismo diseño que el de Martina)
     herramientas legales (versión del HTML de Martina) · Documentos.
   · Inicio, Due diligence, Redacción y Cierre guardan los datos de cada caso,
     los checklists y el último resultado en Supabase (tablas lg_*): necesitan
-    que se haya corrido modulos_tareas_legal.sql (paso A).
+    que se haya corrido BASE_DE_DATOS_FINAL.sql.
   · Dos pestañas: "Agente" (chat que lee los documentos y responde con la cita
     de dónde sale cada dato) y "Checklists y herramientas legales" (Redacción de
     contratos, Cierre de procesos, Comparar documentos, Consultar documento y

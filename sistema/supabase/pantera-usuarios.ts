@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
   // 2) Solo la administradora activa puede usar esta función.
   //    Se pregunta a la base con el token del propio usuario (función ma_es_admin), igual que en el dashboard.
   const { data: esAdmin, error: ea } = await comoUsuario.rpc("ma_es_admin");
-  if (ea) return json({ error: "No se pudo revisar el rol (" + ea.message + "). ¿Se corrió pantera_supabase.sql?" }, 500);
+  if (ea) return json({ error: "No se pudo revisar el rol (" + ea.message + "). ¿Se corrió BASE_DE_DATOS_FINAL.sql?" }, 500);
   if (esAdmin !== true) return json({ error: "Solo la administradora puede manejar usuarios (" + yo + " no figura como admin activa en ma_usuarios)" }, 403);
   const admin = createClient(url, service, { auth: { persistSession: false } });
 
