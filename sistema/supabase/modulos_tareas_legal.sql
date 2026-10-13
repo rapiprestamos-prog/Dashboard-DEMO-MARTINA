@@ -11,6 +11,36 @@
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
+-- 0) Funciones base (por si la base tiene una versión anterior de pantera_supabase.sql)
+-- ---------------------------------------------------------------------
+alter table public.ma_usuarios add column if not exists activo  boolean not null default true;
+alter table public.ma_usuarios add column if not exists modulos text[]  not null default '{martina}';
+
+create or replace function public.ma_email() returns text
+language sql stable as $$ select lower(coalesce(auth.jwt() ->> 'email','')) $$;
+
+create or replace function public.ma_rol() returns text
+language sql stable security definer set search_path = public as $$
+  select u.rol from public.ma_usuarios u where lower(u.email) = public.ma_email() and u.activo
+$$;
+create or replace function public.ma_es_usuario() returns boolean
+language sql stable security definer set search_path = public as $$ select public.ma_rol() is not null $$;
+create or replace function public.ma_es_admin() returns boolean
+language sql stable security definer set search_path = public as $$ select coalesce(public.ma_rol() = 'admin', false) $$;
+
+-- Módulos asignados al usuario conectado y si tiene un módulo (la administradora, todos)
+create or replace function public.ma_modulos() returns text[]
+language sql stable security definer set search_path = public as $$
+  select coalesce(u.modulos,'{}') from public.ma_usuarios u where lower(u.email) = public.ma_email() and u.activo
+$$;
+create or replace function public.ma_tiene_modulo(p_modulo text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce(public.ma_rol() = 'admin' or p_modulo = any(public.ma_modulos()), false)
+$$;
+grant execute on function public.ma_email(), public.ma_rol(), public.ma_es_usuario(), public.ma_es_admin(),
+  public.ma_modulos(), public.ma_tiene_modulo(text) to authenticated;
+
+-- ---------------------------------------------------------------------
 -- 1) Jerarquía: cargo y jefe de cada usuario
 -- ---------------------------------------------------------------------
 alter table public.ma_usuarios add column if not exists cargo text;
