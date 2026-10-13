@@ -369,7 +369,7 @@ table.fl .r{text-align:right;white-space:nowrap;color:var(--text-2)}
 </div>
 <div class="lmain" id="lmain">
   <div class="connect2 hidden" id="connectBox"><div class="big">📂</div><h2 id="connectTitle">Conectar la carpeta __CARPETA__</h2>
-    <p id="connectText">Elige la carpeta <b>__CARPETA__</b> de OneDrive (la que tiene adentro los años y los meses). Solo se hace la primera vez en esta PC: elige <b>“Permitir en todas las visitas”</b>.</p>
+    <p id="connectText">Elige la carpeta <b>__CARPETA__</b> de OneDrive (la que tiene adentro los años y los meses). Solo se hace la primera vez en esta PC: elige <b>“Permitir en cada visita”</b>.</p>
     <button class="btn gold" id="btnConectar" style="font-size:14px;padding:11px 22px">📂 Conectar carpeta</button></div>
   <div class="lector hidden" id="lectorBox">
     <div class="panel"><div class="side-top"><input type="text" id="buscador" placeholder="🔍  Buscar archivo…"></div><div class="tree" id="tree"></div></div>
@@ -451,7 +451,8 @@ async function conectar(gesto){
   let h=await leerHandle();
   if(h){ try{ let p=await h.queryPermission({mode:"read"}); if(p!=="granted"&&gesto) p=await h.requestPermission({mode:"read"}); if(p==="granted"){ await usar(h); return; } }catch(e){} }
   if(gesto){ await elegir(); return; }
-  if(h){ $("connectTitle").textContent="Abrir la carpeta "+h.name; $("btnConectar").textContent="🔓 Abrir carpeta"; }
+  if(h){ $("connectTitle").textContent="Abrir la carpeta "+h.name; $("btnConectar").textContent="🔓 Abrir carpeta";
+    document.addEventListener("pointerdown",e=>{ if(!DIR_HANDLE&&!e.target.closest("#btnConectar,#btnCambiar,#maSalir,a")) conectar(true); },{once:true,capture:true}); }
   $("hdrSub").textContent="Sin carpeta conectada"; pantalla(false);
 }
 async function elegir(){

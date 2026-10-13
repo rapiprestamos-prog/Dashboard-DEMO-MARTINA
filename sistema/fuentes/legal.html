@@ -1388,7 +1388,8 @@ paintBar();
   { let u=0; const v=()=>{ if(document.hidden||Date.now()-u<5000) return; u=Date.now(); revisar(); }; addEventListener("focus",v); document.addEventListener("visibilitychange",v); }
   (async()=>{ await window.MA.listo; if(!window.showDirectoryPicker) return; const h=await leer(); if(!h) return;
     try{ if(await h.queryPermission({mode:"read"})==="granted"){ $s("#fname").textContent="Leyendo la carpeta «"+h.name+"»…"; await usar(h,false); }
-      else $s("#fchoose").textContent="Abrir carpeta «"+h.name+"»"; }catch(e){} })();
+      else { $s("#fchoose").textContent="Abrir carpeta «"+h.name+"»";
+        document.addEventListener("pointerdown",async e=>{ if(H||e.target.closest("#fchoose,#maSalir,a")) return; try{ if(await h.requestPermission({mode:"read"})==="granted") await usar(h,false); }catch(_){} },{once:true,capture:true}); } }catch(e){} })();
 })();
 </script>
 <style>

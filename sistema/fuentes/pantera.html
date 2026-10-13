@@ -470,6 +470,7 @@ function pantallaConectar(titulo,texto,reabrir){
   $("connectText").innerHTML = texto || "Selecciona la carpeta raíz donde están los años y los meses. Solo se hace la primera vez: después entra directo.";
   $("btnConectar").textContent = reabrir ? "🔓 Abrir carpeta" : "📂 Conectar carpeta";
   $("btnConectar").onclick = reabrir ? ()=>conectarAuto(true) : elegirCarpeta;
+  if(reabrir) document.addEventListener("pointerdown",e=>{ if(!DIR_HANDLE&&!e.target.closest("#btnConectar,#btnCambiar,#btnSalir,a")) conectarAuto(true); },{once:true,capture:true});
 }
 async function elegirCarpeta(){
   try{
