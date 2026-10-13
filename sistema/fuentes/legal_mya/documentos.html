@@ -75,6 +75,7 @@ tr.dx-off td{opacity:.6}
   const raiz=()=>window.LEGAL_DIR?window.LEGAL_DIR():null;
   async function sub(nombre,crear){ const r=raiz(); if(!r) return null; try{ return await r.getDirectoryHandle(nombre,crear?{create:true}:undefined); }catch(e){ if(e&&e.name==="NotFoundError") return null; throw e; } }
   async function permisoEscritura(){ const r=raiz(); if(!r) throw new Error("Primero elige la carpeta Legal (botón «Elegir carpeta» arriba).");
+    if(r.auto==="local") throw new Error("Con el acceso directo la carpeta es solo de lectura. Para guardar, abre el dashboard en línea.");
     let p=await r.queryPermission({mode:"readwrite"}); if(p!=="granted") p=await r.requestPermission({mode:"readwrite"});
     if(p!=="granted") throw new Error("Chrome no dio permiso para guardar en la carpeta Legal. Vuelve a intentar y elige «Permitir»."); }
   async function leerJSON(d,n){ if(!d) return {}; try{ return JSON.parse(await (await (await d.getFileHandle(n)).getFile()).text())||{}; }catch(e){ return {}; } }

@@ -16,11 +16,12 @@ AUTH=open('src/comun/ma_auth.html',encoding='utf-8').read()
 def final(s):
     s=s.replace('<!--MA_AUTH-->',AUTH)
     for k,v in LOGOS.items(): s=s.replace(k,v)
+    for k in ('MS_CLIENT_ID','MS_TENANT','MS_LINK_PANTERA','MS_LINK_CONTA','MS_LINK_LEGAL'): s=s.replace('__'+k+'__',os.environ.get(k,''))
     return s.replace('__SUPABASE_URL__',URL).replace('__SUPABASE_ANON__',ANON).replace('__VERSION__',V)
 
 def escribir(nombre,s):
     s=final(s)
-    assert '__SUPABASE' not in s and '__VERSION__' not in s and '<!--MA_AUTH-->' not in s, nombre
+    assert '__SUPABASE' not in s and '__MS_' not in s and '__VERSION__' not in s and '<!--MA_AUTH-->' not in s, nombre
     open(nombre,'w',encoding='utf-8').write(s); print('built',nombre,len(s))
 
 leer=lambda f:open(f,encoding='utf-8').read()

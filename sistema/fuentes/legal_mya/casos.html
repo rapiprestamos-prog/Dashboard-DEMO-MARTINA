@@ -153,7 +153,7 @@ async function leerCarpeta(){
     if(h.kind!=="directory"||n.startsWith(".")||n.startsWith("_")) continue;
     const arch=[]; for await (const f of recorrer(h,"")) arch.push(f);
     for(const a of arch){ try{ const file=await a.handle.getFile(); a.mod=file.lastModified; a.size=file.size; }catch(e){ a.mod=0; } }
-    if(/^documentos$/i.test(n)) continue;
+    if(/^documentos$/i.test(n)||/^(19|20)\d{2}$/.test(n)) continue;   // Documentos y las carpetas de año (Dashboard de Legal) no son casos
     if(/^plantillas?$/i.test(n)) plant.push(...arch.filter(a=>/\.docx$/i.test(a.nombre)));
     else casos.push({nombre:n,handle:h,archivos:arch,mod:arch.reduce((m,a)=>Math.max(m,a.mod||0),0)});
   }

@@ -447,6 +447,8 @@ async function* recorrer(dir, ruta){
 }
 function pantalla(conectado){ $("connectBox").classList.toggle("hidden",conectado); $("lectorBox").classList.toggle("hidden",!conectado); $("btnActualizar").disabled=!conectado; }
 async function conectar(gesto){
+  // acceso directo o Microsoft 365: lee solo, sin que Chrome pregunte
+  try{ const f=await MA.fuente("__CARPETA__",{gesto:gesto&&MA.ms365()}); if(f){ $("btnCambiar").classList.add("hidden"); await usar(f); return; } }catch(e){ alertaTxt("Microsoft 365: "+e.message); }
   if(!window.showDirectoryPicker){ $("connectTitle").textContent="Este navegador no puede leer carpetas"; $("connectText").textContent="Abre el dashboard con Google Chrome o Microsoft Edge."; pantalla(false); return; }
   let h=await leerHandle();
   if(h){ try{ let p=await h.queryPermission({mode:"read"}); if(p!=="granted"&&gesto) p=await h.requestPermission({mode:"read"}); if(p==="granted"){ await usar(h); return; } }catch(e){} }
@@ -475,7 +477,7 @@ async function escanear(){
   try{ ARCHIVOS=await leerLista(); }
   catch(e){ DIR_HANDLE=null; $("connectTitle").textContent="No se pudo leer la carpeta"; $("connectText").textContent=e.message+" · Vuelve a conectarla."; pantalla(false); return; }
   construirArbol();
-  $("hdrSub").textContent=`Carpeta: ${DIR_HANDLE.name} · ${ARCHIVOS.length} archivo(s) · actualizado ${new Date().toLocaleTimeString("es-PA",{hour:"2-digit",minute:"2-digit"})}`;
+  $("hdrSub").textContent=`Carpeta: ${DIR_HANDLE.name}${DIR_HANDLE.auto==="ms365"?" (Microsoft 365)":DIR_HANDLE.auto==="local"?" (acceso directo)":""} · ${ARCHIVOS.length} archivo(s) · actualizado ${new Date().toLocaleTimeString("es-PA",{hour:"2-digit",minute:"2-digit"})}`;
   renderTree();
   if(window.repRefrescar) repRefrescar();
   if(!ARCHIVOS.length){ $("viewer").innerHTML=`<div class="empty"><div class="big">📂</div><b>No hay archivos dentro de año › mes</b>La carpeta ${esc(DIR_HANDLE.name)} debe tener carpetas de año (2026) y adentro los meses (AGOSTO…).</div>`; return; }

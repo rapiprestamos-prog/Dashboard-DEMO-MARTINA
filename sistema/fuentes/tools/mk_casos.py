@@ -17,7 +17,7 @@ rep('bg.innerHTML=`<div class="dlg">${html}</div>`; document.body.appendChild(bg
 rep('function cerrarDlg(){ document.querySelectorAll(".bg")','function cerrarDlg(){ ROOT.querySelectorAll(".bg")')
 rep('document.querySelector(".main").scrollTop=0;','ROOT.querySelector(".main").scrollTop=0;')
 # la subcarpeta Documentos (pestaña Documentos) no es un caso
-rep('if(/^plantillas?$/i.test(n))','if(/^documentos$/i.test(n)) continue;\n    if(/^plantillas?$/i.test(n))')
+rep('if(/^plantillas?$/i.test(n))','if(/^documentos$/i.test(n)||/^(19|20)\\d{2}$/.test(n)) continue;   // Documentos y las carpetas de año (Dashboard de Legal) no son casos\n    if(/^plantillas?$/i.test(n))')
 # carpeta: la misma que eligió la barra de arriba
 i=js.index('async function conectar(gesto){'); j=js.index('/* ============================ lectura de documentos')
 js=js[:i]+'''async function conectar(){ RAIZ=window.LEGAL_DIR?window.LEGAL_DIR():null; if(!RAIZ) return false; await leerCarpeta(); return true; }

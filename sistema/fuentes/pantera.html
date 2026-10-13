@@ -448,6 +448,7 @@ function banner(html,tipo,clave){
 // gesto=true cuando viene de un clic (permite pedir el permiso sin abrir el explorador de Windows)
 async function conectarAuto(gesto){
   if(DIR_HANDLE){ return; }
+  if(gesto&&MA.ms365()){ try{ const f=await MA.fuente("PruebaDashboard",{gesto:true}); if(f){ AUTO=true; document.body.classList.add("modoAuto"); await usarHandle(f); return; } }catch(e){ banner("Microsoft 365: "+esc(e.message),"err"); } }
   if(AUTO_PEND){ await AUTO_PEND; if(DIR_HANDLE) return; }
   if(!window.showDirectoryPicker){
     pantallaConectar("Este navegador no puede leer carpetas","Abre este archivo con Google Chrome o Microsoft Edge.",false); return;
@@ -577,7 +578,7 @@ async function escanear(forzar){
   ARCHIVOS=lista;
   construirArbol();
   $("cntArchivos").textContent=ARCHIVOS.length;
-  $("hdrSub").textContent=`Carpeta: ${DIR_HANDLE.name}${AUTO?" (automática)":""} · ${ARCHIVOS.length} archivo(s) · actualizado ${new Date().toLocaleTimeString("es-PA",{hour:"2-digit",minute:"2-digit"})}`;
+  $("hdrSub").textContent=`Carpeta: ${DIR_HANDLE.name}${DIR_HANDLE.auto==="ms365"?" (Microsoft 365)":AUTO?" (acceso directo)":""} · ${ARCHIVOS.length} archivo(s) · actualizado ${new Date().toLocaleTimeString("es-PA",{hour:"2-digit",minute:"2-digit"})}`;
   // aviso si se conectó un mes en vez de la carpeta raíz
   if(!ARCHIVOS.length){ if(!SB_ON) banner(`La carpeta <b>${esc(DIR_HANDLE.name)}</b> no tiene archivos Excel dentro de carpetas de año y mes (por ejemplo <b>2026 › AGOSTO</b>).`,"err"); }
   else if(!Object.keys(ARBOL).some(esAnio) && (esMesNombre(DIR_HANDLE.name) || esAnio(DIR_HANDLE.name)))
@@ -841,6 +842,9 @@ MA.listo.then(async c=>{
   borrarDatosPantera(); reiniciarPantera(true);
   setTab(lsGet("martina_tab")||"lector");
   $("hdrSub").textContent="Conectando con la carpeta…";
+  // acceso directo o Microsoft 365: lee solo, sin que Chrome pregunte
+  const f=await MA.fuente("PruebaDashboard");
+  if(f){ AUTO=true; document.body.classList.add("modoAuto"); await usarHandle(f); return; }
   await conectarAuto(true);
 });
 </script>

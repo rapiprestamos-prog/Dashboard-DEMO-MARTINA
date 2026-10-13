@@ -64,6 +64,7 @@
     catch(e){ if(e&&e.name!=="NotFoundError") $("repNota").innerHTML=`<span class="rinfo err">No se pudo leer ${ARCH_REP}: ${esc(e.message)}</span>`; }
   }
   async function guardarReportes(){
+    if(DIR_HANDLE.auto==="local") throw new Error("Con el acceso directo la carpeta es solo de lectura. Para guardar, abre el dashboard en línea.");
     let p=await DIR_HANDLE.queryPermission({mode:"readwrite"});
     if(p!=="granted") p=await DIR_HANDLE.requestPermission({mode:"readwrite"});
     if(p!=="granted") throw new Error("Chrome no dio permiso para guardar en la carpeta. Vuelve a intentar y elige «Permitir».");
