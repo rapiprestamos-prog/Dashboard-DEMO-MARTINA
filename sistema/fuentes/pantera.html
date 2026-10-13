@@ -473,7 +473,7 @@ function pantallaConectar(titulo,texto,reabrir){
   $("moduloBody").classList.add("hidden"); $("mtabs").classList.add("hidden");
   $("connectBox").classList.remove("hidden");
   $("connectTitle").textContent = titulo || "Conectar la carpeta de OneDrive";
-  $("connectText").innerHTML = texto || "Selecciona la carpeta raíz donde están los años y los meses. Solo se hace la primera vez: después entra directo.";
+  $("connectText").innerHTML = texto || "Es la primera vez en este navegador. Pulsa el botón y elige la carpeta <b>PruebaDashboard</b> de OneDrive (a la izquierda del explorador aparece tu OneDrive). Solo se hace una vez: después entra directo.";
   $("btnConectar").textContent = reabrir ? "🔓 Abrir carpeta" : "📂 Conectar carpeta";
   $("btnConectar").onclick = reabrir ? ()=>conectarAuto(true) : elegirCarpeta;
   if(reabrir) document.addEventListener("pointerdown",e=>{ if(!DIR_HANDLE&&!e.target.closest("#btnConectar,#btnCambiar,#btnSalir,a")) conectarAuto(true); },{once:true,capture:true});
@@ -872,7 +872,7 @@ MA.listo.then(async c=>{
   // acceso directo o Microsoft 365: lee solo, sin que Chrome pregunte
   const f=await MA.fuente("PruebaDashboard");
   if(f){ AUTO=true; document.body.classList.add("modoAuto"); await usarHandle(f); return; }
-  await conectarAuto(true);
+  await conectarAuto(false);   // nunca abre el explorador por su cuenta: si hace falta, muestra la pantalla de conectar
 });
 </script>
 </body>
