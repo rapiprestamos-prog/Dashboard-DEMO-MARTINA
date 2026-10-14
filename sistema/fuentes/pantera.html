@@ -314,6 +314,10 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
 .mod-card.sin .mod-tag{color:var(--muted);background:var(--surface-2)}
 .mod-go{font-size:12.5px;font-weight:800;color:var(--navy);transition:color .15s,transform .15s}
 .mod-card:hover .mod-go{color:var(--teal);transform:translateX(3px)}
+.cbtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.cnota{margin-top:18px;padding:12px 14px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);font-size:13px;color:var(--text-2);line-height:1.5;text-align:left}
+.cnota:empty{display:none}
+.cnota b{color:var(--text)}
 </style>
 </head>
 <body>
@@ -340,6 +344,7 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
     <div class="hbtns">
       <button class="hbtn pri" id="btnActualizar" disabled>↻ Actualizar</button>
       <button class="hbtn" id="btnCambiar">📁 Cambiar carpeta</button>
+      <button class="hbtn hidden" id="btnInstalarHdr" title="Instalar el dashboard como app: así no vuelve a pedir la carpeta">⬇ Instalar app</button>
       <span class="rolchip hidden" id="rolChip"></span>
       <button class="hbtn hidden" id="btnSalir" title="Cerrar sesión">⎋ Salir</button>
     </div>
@@ -353,7 +358,9 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
     <h2 id="connectTitle">Conectar la carpeta de OneDrive</h2>
     <p id="connectText">Selecciona la carpeta raíz donde están los años y los meses. Solo se hace la primera vez: después entra directo.</p>
     <code>OneDrive › PruebaDashboard</code><br>
-    <button class="btn gold" id="btnConectar" style="font-size:14px;padding:11px 22px">📂 Conectar carpeta</button>
+    <div class="cbtns"><button class="btn gold" id="btnConectar" style="font-size:14px;padding:11px 22px">📂 Conectar carpeta</button>
+      <button class="btn hidden" id="btnInstalarApp" style="font-size:14px;padding:11px 18px">⬇ Instalar como app</button></div>
+    <div class="cnota" id="connectNota"></div>
   </div>
 
   <div id="moduloBody" class="hidden">
@@ -466,8 +473,17 @@ async function conectarAuto(gesto){
     if(perm!=="granted" && gesto) perm = await h.requestPermission({mode:"read"});
     if(perm==="granted"){ await usarHandle(h); return; }
   }catch(e){}
-  pantallaConectar("Abrir la carpeta "+h.name,"Haz clic para abrir la carpeta guardada. Si Chrome te ofrece <b>“Permitir en cada visita”</b>, elígelo y no volverá a preguntar.",true);
+  pantallaConectar("Abrir la carpeta "+h.name,"Haz clic en cualquier parte de la página y se abre la carpeta guardada.",true);
 }
+function notaInstalar(){
+  const n=$("connectNota"), bi=$("btnInstalarApp"), bh=$("btnInstalarHdr"), ok=MA.instalable&&MA.instalable();
+  bi.classList.toggle("hidden",!ok); bh.classList.toggle("hidden",!ok);
+  if(location.protocol!=="https:"&&location.hostname!=="localhost"){ n.innerHTML=""; return; }
+  n.innerHTML = (MA.esApp&&MA.esApp())
+    ? "Estás en la <b>app del dashboard</b>: da el permiso una vez y queda guardado; no vuelve a pedirlo."
+    : "<b>Para que no lo vuelva a pedir:</b> "+(ok?"pulsa <b>Instalar como app</b> y abre el dashboard desde ese ícono, o ":"")+"cuando Chrome pregunte, elige <b>“Permitir en cada visita”</b>.";
+}
+document.addEventListener("ma-instalable",notaInstalar);
 function pantallaConectar(titulo,texto,reabrir){
   $("hdrSub").textContent="Sin carpeta conectada";
   $("moduloBody").classList.add("hidden"); $("mtabs").classList.add("hidden");
@@ -476,7 +492,9 @@ function pantallaConectar(titulo,texto,reabrir){
   $("connectText").innerHTML = texto || "Es la primera vez en este navegador. Pulsa el botón y elige la carpeta <b>PruebaDashboard</b> de OneDrive (a la izquierda del explorador aparece tu OneDrive). Solo se hace una vez: después entra directo.";
   $("btnConectar").textContent = reabrir ? "🔓 Abrir carpeta" : "📂 Conectar carpeta";
   $("btnConectar").onclick = reabrir ? ()=>conectarAuto(true) : elegirCarpeta;
-  if(reabrir) document.addEventListener("pointerdown",e=>{ if(!DIR_HANDLE&&!e.target.closest("#btnConectar,#btnCambiar,#btnSalir,a")) conectarAuto(true); },{once:true,capture:true});
+  $("btnInstalarApp").onclick = $("btnInstalarHdr").onclick = ()=>MA.instalar();
+  notaInstalar();
+  if(reabrir) document.addEventListener("pointerdown",e=>{ if(!DIR_HANDLE&&!e.target.closest("#btnConectar,#btnCambiar,#btnSalir,#btnInstalarApp,#btnInstalarHdr,a")) conectarAuto(true); },{once:true,capture:true});
 }
 async function elegirCarpeta(){
   try{

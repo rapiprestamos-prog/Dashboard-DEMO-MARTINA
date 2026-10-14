@@ -40,3 +40,8 @@ for archivo,titulo,carpeta,modulo,conRep in (('contabilidad.html','Dashboard Con
     escribir(archivo,a)
 escribir('legal.html',leer('src/legal.html'))
 escribir('tareas.html',leer('src/tareas.html'))
+
+# App instalable (manifest, íconos y service worker) — se publican junto a las páginas
+import shutil
+for f in os.listdir('src/pwa'): shutil.copy('src/pwa/'+f, f)
+print('pwa', os.listdir('src/pwa'))

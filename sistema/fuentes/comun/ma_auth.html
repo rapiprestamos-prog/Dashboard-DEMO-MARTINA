@@ -372,3 +372,25 @@ window.MA=(function(){
   };
 })();
 </script>
+
+<script>
+/* ===== Instalar el dashboard como app (solo en línea, desde GitHub) =====
+   Una app instalada guarda el permiso de las carpetas: después de darlo una vez, ya no vuelve a pedir "Abrir carpeta". */
+(function(){
+  if(!/^https:/.test(location.protocol)&&location.hostname!=="localhost") { window.MA.instalable=()=>false; window.MA.instalar=async()=>false; window.MA.esApp=()=>false; return; }
+  const l=document.createElement("link"); l.rel="manifest"; l.href="manifest.webmanifest"; document.head.appendChild(l);
+  try{ if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{}); }catch(e){}
+  let ev=null; const avisar=()=>document.dispatchEvent(new CustomEvent("ma-instalable"));
+  window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); ev=e; avisar(); });
+  window.addEventListener("appinstalled",()=>{ ev=null; avisar(); });
+  window.MA.esApp=()=>{ try{ return matchMedia("(display-mode: standalone)").matches||matchMedia("(display-mode: window-controls-overlay)").matches; }catch(e){ return false; } };
+  window.MA.instalable=()=>!!ev;
+  window.MA.instalar=async()=>{ if(!ev) return false; ev.prompt(); const r=await ev.userChoice.catch(()=>({})); ev=null; avisar(); return r&&r.outcome==="accepted"; };
+  // Botón en la cabecera común
+  function boton(){ const der=document.getElementById("maExtra"); if(!der) return;
+    let b=document.getElementById("maInstalar");
+    if(!window.MA.instalable()){ if(b) b.remove(); return; }
+    if(!b){ b=document.createElement("button"); b.id="maInstalar"; b.className="ma-hbtn"; b.title="Instalar el dashboard como app: así no vuelve a pedir la carpeta"; b.textContent="⬇ Instalar app"; b.onclick=()=>window.MA.instalar(); der.appendChild(b); } }
+  document.addEventListener("ma-instalable",boton); setTimeout(boton,1500);
+})();
+</script>

@@ -75,7 +75,7 @@ h2{font-size:24px;font-weight:700}
   <header class="head">
     <div class="head-top">
       <img src="__LOGO_MYA_INK__" alt="M&amp;A Capital Inc">
-      <div class="home-user" id="homeUser"><span id="homeUserTxt"></span><a class="ma-hbtn hidden" id="btnUsuariosHome" href="usuarios.html" title="Usuarios y permisos (administradora)">👥 Usuarios</a><button class="ma-hbtn hidden" id="btnSalirHome" title="Cerrar sesión">⎋ Salir</button></div>
+      <div class="home-user" id="homeUser"><span id="homeUserTxt"></span><button class="ma-hbtn hidden" id="btnInstalarHome" title="Instalar el dashboard como app: así no vuelve a pedir las carpetas">⬇ Instalar app</button><a class="ma-hbtn hidden" id="btnUsuariosHome" href="usuarios.html" title="Usuarios y permisos (administradora)">👥 Usuarios</a><button class="ma-hbtn hidden" id="btnSalirHome" title="Cerrar sesión">⎋ Salir</button></div>
     </div>
     <span class="eyebrow">M&amp;A Capital · Uso interno · <span title="Versión del dashboard">__VERSION__</span></span>
     <h1>Dashboard Interno Ultimate</h1>
@@ -161,6 +161,8 @@ MA.opcional().then(c=>{
   visibles=new Set(MODS.filter(m=>MA.puede(c,m.id)).map(m=>m.id));
   pintar();
 });
+const instBtn=()=>$("btnInstalarHome").classList.toggle("hidden",!(MA.instalable&&MA.instalable()));
+$("btnInstalarHome").onclick=()=>MA.instalar(); document.addEventListener("ma-instalable",instBtn); instBtn();
 try{ sessionStorage.removeItem("ma-msg"); }catch(e){}
 </script>
 </body>
