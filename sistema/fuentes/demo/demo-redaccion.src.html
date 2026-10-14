@@ -320,7 +320,8 @@ const CASOS=[
    "Finca":["30521","Certificado Registro Público – Finca 30521.pdf"],
    "Ubicación":["Local 3, P.H. Plaza Marbella, corregimiento de Bella Vista, ciudad de Panamá","Certificado Registro Público – Finca 30521.pdf"],
    "Precio":["185,000.00","Avalúo Local 3.pdf"],
-   "Abono":["18,500.00","Borrador promesa de compraventa v2.docx"]}},
+   "Abono":["18,500.00","Borrador promesa de compraventa v2.docx"],
+   "Plazo":["noventa (90) días","Borrador promesa de compraventa v2.docx"]}},
  {id:"2026-017",nombre:"Arrendamiento Oficina 12B – Tecnova",tipo:"Arrendamiento comercial",resp:"Omayra",
   archivos:[
    {n:"Certificado Registro Público – Finca 41877.pdf",t:"pdf",f:"20/09/2026"},
@@ -476,8 +477,92 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>ir(b.dataset.t));
 $("btnReset").onclick=()=>{ try{ localStorage.removeItem(CLAVE); }catch(e){} ST=cargar(); ir("casos"); pintarCasos(CASOS[0].id); };
 
 /* =====================================================================
+   ¿Qué falta? — por lógica, sin IA
+   1) Expediente: documentos requeridos según el tipo de caso vs. archivos de la carpeta
+   2) Datos: campos de la plantilla que no aparecen en los documentos del caso
+   3) Documento: elementos que todo documento de ese tipo debe tener
+   (En la demo las listas son de ejemplo; en el sistema las define Legal.)
+   ===================================================================== */
+const CHECKLISTS={
+ "Compraventa de inmueble":[
+  {doc:"Certificado del Registro Público de la finca",rx:/registro p[uú]blico|certificado.*finca/i},
+  {doc:"Cédula del comprador",rx:/c[eé]dula.*m[eé]ndez/i},
+  {doc:"Cédula del representante de la vendedora",rx:/c[eé]dula.*r[ií]os/i},
+  {doc:"Pacto social o certificado de la sociedad vendedora",rx:/pacto social|certificado.*sociedad/i},
+  {doc:"Avalúo del inmueble",rx:/aval[uú]o/i},
+  {doc:"Paz y salvo de impuesto de inmueble",rx:/paz y salvo.*inmueble/i},
+  {doc:"Paz y salvo del IDAAN",rx:/idaan/i},
+  {doc:"Promesa de compraventa firmada",rx:/promesa.*firmad/i,borrador:/borrador.*promesa|promesa.*borrador/i}],
+ "Arrendamiento comercial":[
+  {doc:"Certificado del Registro Público de la finca",rx:/registro p[uú]blico|certificado.*finca/i},
+  {doc:"Aviso de operación del arrendatario",rx:/aviso de operaci[oó]n/i},
+  {doc:"Certificado de persona jurídica del arrendatario",rx:/persona jur[ií]dica|certificado.*tecnova/i},
+  {doc:"Cédula del representante del arrendatario",rx:/c[eé]dula.*batista/i},
+  {doc:"Tabla o acuerdo de cánones",rx:/c[aá]non/i},
+  {doc:"Contrato de arrendamiento vigente firmado",rx:/contrato.*arrendamiento.*(firmad|2026)/i,borrador:/contrato.*arrendamiento.*anterior/i,nota:"Solo está el contrato anterior (2024)"}],
+ "Acuerdo de confidencialidad":[
+  {doc:"Carta de intención",rx:/carta de intenci[oó]n/i},
+  {doc:"Certificado de la sociedad receptora",rx:/certificado.*andino|pacto.*andino/i},
+  {doc:"Acuerdo de confidencialidad firmado",rx:/(confidencialidad|nda).*firmad/i}],
+ "Poder":[
+  {doc:"Cédula del poderdante",rx:/c[eé]dula.*salda[nñ]a/i},
+  {doc:"Cédula del apoderado",rx:/c[eé]dula.*herrera/i},
+  {doc:"Instrucciones del cliente",rx:/instrucciones/i},
+  {doc:"Poder firmado y autenticado",rx:/poder.*(firmad|autenticad)/i}]
+};
+function expediente(c){
+  return (CHECKLISTS[c.tipo]||[]).map(it=>{ const a=c.archivos.find(x=>it.rx.test(x.n)), b=!a&&it.borrador&&c.archivos.find(x=>it.borrador.test(x.n));
+    return {doc:it.doc,estado:a?"Completo":b?"Por revisar":"Falta",archivo:a?a.n:b?b.n:"",nota:a?"":b?(it.nota||"Solo hay un borrador; falta la versión firmada"):"No hay ningún archivo de este tipo en la carpeta"}; });
+}
+function plantillaSugerida(c){ const act=ST.plantillas.filter(p=>p.activa); return act.find(p=>p.tipo&&c.tipo.toLowerCase().includes(p.tipo.toLowerCase().slice(0,6)))||null; }
+const REGLAS={
+ compraventa:{nombre:"Promesa de compraventa",es:/compraventa/i,req:[
+  ["Identificación de las partes con cédula",/c[eé]dula[\s\S]{0,60}?\d{1,2}-\d{1,4}-\d{1,6}/i],
+  ["RUC de la sociedad",/RUC\s*[\d-]{6,}/i],
+  ["Número de finca",/finca\s*(no\.?)?\s*\d{3,}/i],
+  ["Precio en letras y en cifras",/D[ÓO]LARES CON \d{2}\/100\s*\(US\$/],
+  ["Plazo para pagar el saldo",/plazo de [^.]*?\(\d+\)\s*(d[ií]as|meses|a[nñ]os)/i],
+  ["Cláusula de incumplimiento",/incumpl|no cumple/i],
+  ["Quién paga los gastos",/gastos[^.]*(cubiertos|pagados) por (?!\{\{|_)[A-Za-zÁÉÍÓÚáéíóú]/i],
+  ["Fecha de firma completa",/(a los|el)\s+\d{1,2}\s+(d[ií]as|de)/i],
+  ["Bloque de firmas",/_{8,}[\s\S]{0,80}(VENDEDOR|COMPRADOR)/i]]},
+ arrendamiento:{nombre:"Contrato de arrendamiento",es:/arrendamiento/i,req:[
+  ["Identificación de las partes (RUC o cédula)",/RUC\s*[\d-]{6,}|c[eé]dula[\s\S]{0,60}?\d{1,2}-\d{1,4}-\d{1,6}/i],
+  ["Canon en letras y en cifras",/D[ÓO]LARES CON \d{2}\/100\s*\(US\$/],
+  ["Plazo del contrato",/plazo[^.]*\(\d+\)\s*(d[ií]as|meses|a[nñ]os)/i],
+  ["Fecha de inicio",/a partir del?\s+\d{1,2}|a partir del?\s+[a-z]/i],
+  ["Depósito de garantía con monto",/dep[oó]sito[^.]*US\$\s*[\d,]+/i],
+  ["Bloque de firmas",/_{8,}/]]},
+ poder:{nombre:"Poder",es:/\bpoder\b/i,req:[
+  ["Cédula del poderdante",/(yo|poderdante)[\s\S]{0,140}?\d{1,2}-\d{1,4}-\d{1,6}/i],
+  ["Cédula del apoderado",/(a favor de|otorgo)[\s\S]{0,220}?\d{1,2}-\d{1,4}-\d{1,6}/i],
+  ["Facultades concretas",/para que[^.]{20,}/i],
+  ["Fecha",/\d{1,2} de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) de \d{4}/i],
+  ["Firma del poderdante",/_{8,}/]]},
+ carta:{nombre:"Carta",es:/estimados|atentamente/i,req:[
+  ["Fecha",/\d{1,2} de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) de \d{4}/i],
+  ["Destinatario",/señores|señor|señora/i],
+  ["Firmante y cargo",/atentamente[\s\S]{0,40}\n?.*[A-Za-z]{3,}/i]]}
+};
+function tipoDoc(txt){ const t=txt.slice(0,400); if(/PODER/.test(t)) return "poder"; if(/COMPRAVENTA/i.test(t)) return "compraventa"; if(/ARRENDAMIENTO/i.test(t)) return "arrendamiento"; if(/estimados|atentamente/i.test(txt)) return "carta"; return null; }
+function faltantesDoc(txt){ const k=tipoDoc(txt); if(!k) return {tipo:null,lista:[]}; const r=REGLAS[k]; return {tipo:r.nombre,lista:r.req.map(([n,rx])=>({n,ok:rx.test(txt)}))}; }
+
+/* =====================================================================
    Casos
    ===================================================================== */
+function bloqueFalta(c){
+  const ex=expediente(c), n={ok:ex.filter(x=>x.estado==="Completo").length,rev:ex.filter(x=>x.estado==="Por revisar").length,f:ex.filter(x=>x.estado==="Falta").length};
+  const p=plantillaSugerida(c), faltan=p?campos(p.html).filter(k=>k!=="Fecha"&&!/ en letras$/.test(k)&&!c.datos[k]):[];
+  return `<div class="box"><h3>🧾 ¿Qué falta en este caso? <span class="muted small" style="font-weight:500">— revisión automática del expediente</span></h3>
+    <div class="resumen"><span class="tag ok">${n.ok} completos</span><span class="tag warn">${n.rev} por revisar</span><span class="tag bad">${n.f} faltan</span>${p?`<span class="tag ${faltan.length?"bad":"ok"}">${faltan.length} dato(s) faltan para «${esc(p.nombre)}»</span>`:""}</div>
+    <div class="cols2" style="padding:12px 14px;gap:16px">
+      <div><b class="small">Documentos que debe tener el expediente (${esc(c.tipo)})</b>
+        <table class="t" style="margin-top:6px"><tbody>${ex.map(x=>`<tr><td style="width:110px"><span class="tag ${x.estado==="Completo"?"ok":x.estado==="Falta"?"bad":"warn"}">${x.estado==="Completo"?"✓ Completo":x.estado==="Falta"?"✗ Falta":"! Por revisar"}</span></td><td><b>${esc(x.doc)}</b><div class="muted small">${x.archivo?"📄 "+esc(x.archivo)+(x.nota?" · "+esc(x.nota):""):esc(x.nota)}</div></td></tr>`).join("")}</tbody></table></div>
+      <div><b class="small">Datos que faltan para redactar${p?" la «"+esc(p.nombre)+"»":""}</b>
+        ${p?(faltan.length?`<ul style="margin:8px 0 0;padding-left:18px">${faltan.map(k=>`<li><b>${esc(k)}</b> <span class="muted small">— no aparece en ningún documento del caso</span></li>`).join("")}</ul><p class="small muted" style="margin:10px 0 0">Al redactar, estos datos quedan como línea para llenar a mano. Si se agrega a la carpeta el documento que los contiene, se llenan solos.</p>`:'<p class="small" style="margin:8px 0 0">✓ Todos los datos de la plantilla aparecen en los documentos del caso.</p>'):'<p class="small muted">No hay plantilla activa para este tipo de caso.</p>'}
+        <p class="small muted" style="margin:12px 0 0">Las listas de documentos requeridos son de ejemplo; en el sistema las define el equipo de Legal para cada tipo de proceso.</p></div>
+    </div></div>`;
+}
 let casoSel=CASOS[0].id;
 function pintarCasos(id){ casoSel=id||casoSel;
   $("listaCasos").innerHTML=CASOS.map(c=>`<button class="caso ${c.id===casoSel?"sel":""}" data-id="${c.id}"><b>📁 ${esc(c.id)} · ${esc(c.nombre)}</b><span>${esc(c.tipo)} · ${c.archivos.length} archivos · ${ST.docs.filter(d=>d.caso===c.id).length} documento(s) redactado(s)</span></button>`).join("");
@@ -489,7 +574,8 @@ function pintarCasos(id){ casoSel=id||casoSel;
       <div class="box"><h3>Archivos en la carpeta del caso</h3><table class="t"><tbody>${c.archivos.map((a,i)=>`<tr><td><span class="fi ${a.t}">${a.t.toUpperCase()}</span>${esc(a.n)}<div class="muted small" style="margin-left:32px">Modificado ${esc(a.f)}</div></td><td class="acc">${a.texto?`<button class="lnk" data-leer="${i}">Leer y revisar</button>`:""}</td></tr>`).join("")}</tbody></table></div>
       <div class="box"><h3>Datos que la IA encontró en los documentos</h3><dl class="datos">${Object.entries(c.datos).map(([k,[v,f]])=>`<dt>${esc(k)}</dt><dd>${esc(v)}<small>📄 ${esc(f)}</small></dd>`).join("")}</dl>
         <div class="rv-vacio small">Cada dato indica de qué archivo salió. Si un dato no aparece en los documentos, queda en blanco: la IA no lo inventa.</div></div>
-    </div>`;
+    </div>
+    <div class="cuerpo" style="padding-top:0">${bloqueFalta(c)}</div>`;
   $("btnRedactarCaso").onclick=()=>nuevoDoc(c.id);
   $("detCaso").querySelectorAll("[data-leer]").forEach(b=>b.onclick=()=>{ const a=c.archivos[+b.dataset.leer]; ir("revisar"); $("rvArchivo").value=c.id+"|"+a.n; abrirRevision(); });
 }
@@ -705,6 +791,8 @@ function calcVals(){
     if(!ok) MALOS.push("US$"+cifra);
     vals.push({ok,txt:ok?`Monto <b>US$${esc(cifra)}</b>: coincide con lo escrito en letras.`:`Monto <b>US$${esc(cifra)}</b>: en letras dice «${esc(escrito)}», pero esa cifra se escribe «<b>${esc(esperado)}</b>».`}); }
   if(!n) vals.push({ok:true,txt:"No hay montos con formato «… DÓLARES CON 00/100 (US$…)» para comparar."});
+  const fd=faltantesDoc(raiz.innerText);
+  if(fd.tipo){ const no=fd.lista.filter(x=>!x.ok); vals.push({ok:!no.length,txt:no.length?`<b>Le falta al documento (${esc(fd.tipo)}):</b><ul style="margin:6px 0 0;padding-left:18px">${no.map(x=>`<li>${esc(x.n)}</li>`).join("")}</ul><span class="muted small">Tiene: ${fd.lista.filter(x=>x.ok).map(x=>esc(x.n)).join(" · ")||"—"}</span>`:`Tiene todos los elementos de un(a) ${esc(fd.tipo)}: ${fd.lista.map(x=>esc(x.n)).join(" · ")}.`}); }
   const fechas=(txt.match(/\b\d{1,2} de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) de \d{4}\b/gi)||[]);
   vals.push({ok:true,txt:`${fechas.length} fecha(s) encontradas${fechas.length?": "+esc([...new Set(fechas)].join(" · ")):""}.`});
   return vals;
@@ -789,6 +877,8 @@ function pintarComo(){
     <p>Las plantillas se manejan desde la pestaña <b>Plantillas</b> sin programar: <b>Usar, Ver, Editar, Duplicar y Desactivar</b>. También se puede crear una plantilla subiendo directamente el Word del modelo y marcando los campos con <b>＋ Campo</b>.</p>
     <h3>Revisión ortográfica</h3>
     <p>Dos niveles: mientras se escribe, el navegador subraya en rojo las palabras que no reconoce (diccionario de español). Con <b>Revisar ortografía</b>, el sistema lista cada falta (tildes, palabras mal escritas, palabras repetidas, espacios dobles) con su corrección, y Omayra decide <b>Corregir</b> o <b>Ignorar</b>. En el sistema real esta revisión la hace la IA, que además detecta errores de gramática y concordancia. En esta demo se usa una lista de errores frecuentes para mostrar el funcionamiento.</p>
+    <h3>Detección de lo que falta</h3>
+    <p>El sistema revisa por lógica, sin depender de nadie, tres cosas: <b>(1) el expediente</b>: compara los documentos que debe tener cada tipo de caso (cédulas, certificado del Registro Público, paz y salvos, documento firmado…) con los archivos de la carpeta, y marca cada uno como <b>Completo</b>, <b>Por revisar</b> (por ejemplo, solo hay un borrador) o <b>Falta</b>; <b>(2) los datos</b>: qué datos necesita la plantilla que no aparecen en ningún documento del caso; y <b>(3) cada documento</b>: si le faltan elementos que todo documento de ese tipo debe tener (identificación de las partes, plazo, quién paga los gastos, fecha de firma, bloque de firmas…). Las listas de requisitos las define Legal para cada tipo de proceso.</p>
     <h3>Lectura y corrección de documentos existentes</h3>
     <p>Además de redactar, Omayra puede abrir cualquier Word que ya exista (de la carpeta del caso o uno que reciba de la contraparte). El sistema lo lee, marca las faltas de ortografía, los datos sin llenar y los montos en letras que no coinciden con la cifra, y permite descargar el Word corregido.</p></div>
 
