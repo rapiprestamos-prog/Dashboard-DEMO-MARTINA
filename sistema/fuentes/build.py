@@ -8,7 +8,7 @@
 #   usuarios.html         Usuarios y permisos (administradora)
 import base64, os, datetime
 d=lambda f:'data:image/png;base64,'+base64.b64encode(open(f,'rb').read()).decode()
-LOGOS={'__LOGO_GOLD__':d('src/logo/gold.png'),'__LOGO_NAVY__':d('src/logo/navy.png'),'__LOGO_MYA__':d('src/logo/mya_white.png')}
+LOGOS={'__LOGO_GOLD__':d('src/logo/gold.png'),'__LOGO_NAVY__':d('src/logo/navy.png'),'__LOGO_MYA__':d('src/logo/mya_white.png'),'__LOGO_MYA_INK__':d('src/logo/mya_ink.png')}
 V=(datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(hours=5)).strftime('v%d-%m-%Y %H:%M')
 URL=os.environ.get('SB_URL',''); ANON=os.environ.get('SB_ANON','')
 AUTH=open('src/comun/ma_auth.html',encoding='utf-8').read()
