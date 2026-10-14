@@ -746,8 +746,7 @@ const PEDIDO=`Para preparar la redacción automática de documentos en el Agente
 4. Dos o tres ejemplos ya firmados de cada tipo (pueden ser de casos cerrados), para comprobar que el sistema llena bien los datos.
 5. La estructura de carpetas de Legal en SharePoint: cómo se nombran los casos y qué subcarpetas tiene cada caso.
 6. Las reglas de estilo de la firma: formato de fechas, montos en letras y números, uso de mayúsculas y bloque de firmas.
-7. Quién aprueba los modelos y quién puede crear o cambiar una plantilla.
-8. Que la biblioteca de Legal de SharePoint esté sincronizada con OneDrive en la computadora de Omayra.`;
+7. Quién aprueba los modelos y quién puede crear o cambiar una plantilla.`;
 const PROMPT_IA=`Eres el asistente legal interno de M&A Capital (Panamá).
 Trabajas SOLO con los documentos del caso que se te entregan.
 
@@ -770,7 +769,7 @@ Revisión del documento terminado:
 function pintarComo(){
   $("docComo").innerHTML=`
   <div class="panel"><h2>1. Las carpetas: SharePoint → OneDrive → Agente Legal</h2>
-    <p>Es el mismo sistema que ya usa el Dashboard de Contabilidad. La biblioteca <b>Legal</b> de SharePoint se sincroniza con OneDrive en la computadora de Omayra, y el Agente Legal lee esa carpeta directamente. <b>No hay que subir archivos uno por uno</b>: lo que esté en la carpeta aparece en el sistema.</p>
+    <p>Es el mismo sistema que ya usa el Dashboard de Contabilidad. Como las carpetas de SharePoint ya están sincronizadas con OneDrive, el Agente Legal lee directamente la carpeta <b>Legal</b> en la computadora de Omayra. <b>No hay que subir archivos uno por uno</b>: lo que esté en la carpeta aparece en el sistema.</p>
     <ul><li>Cada subcarpeta es un <b>caso</b>. Omayra elige en la pestaña <b>Casos</b> cuál revisar o a cuál dar seguimiento.</li>
       <li>El sistema lee PDF, Word y Excel del caso. La IA extrae los datos (partes, cédulas, RUC, fincas, montos, fechas) e indica <b>de qué archivo salió cada uno</b>.</li>
       <li>Los documentos redactados se guardan como Word en la carpeta Legal, así quedan en SharePoint para todo el equipo.</li>
