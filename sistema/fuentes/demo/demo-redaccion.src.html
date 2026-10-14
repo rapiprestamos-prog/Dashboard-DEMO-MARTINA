@@ -148,7 +148,22 @@ mark.val{background:#fff1c2;border-bottom:2px solid #d9a400;color:inherit;paddin
 .doc h2{margin:0 0 6px;font-size:18px;font-weight:800}
 .doc h3{margin:18px 0 6px;font-size:14.5px}
 .doc p,.doc li{color:var(--text-2);line-height:1.6;font-size:13.5px}
-.flujo{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:14px 0 4px}
+.flujo{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:14px 0 14px}
+.linea{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:10px}
+@media (max-width:1000px){.linea{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.portada{border-top:4px solid var(--gold)}
+.portada .k{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-d);font-weight:800}
+.indice{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.indice a{font-size:12.5px;font-weight:700;color:var(--navy);text-decoration:none;padding:6px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border)}
+.indice a:hover{background:#eaf0f7}
+.destacado{background:#fdf6e6;border-left:4px solid var(--gold-d);border-radius:8px;padding:14px 16px;font-size:13.5px;line-height:1.6;color:#4a3a12}
+.tarjetas{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:10px}
+.tj{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface-2)}
+.tj b{font-size:13.5px}
+.tj p{margin:6px 0 0;font-size:12.8px;line-height:1.55}
+ol.mat{margin:10px 0 0;padding-left:22px}
+ol.mat li{margin-bottom:7px;color:var(--text-2);font-size:13.5px;line-height:1.55}
+.doc .panel{scroll-margin-top:12px}
 @media (max-width:1000px){.flujo{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .paso{border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--surface-2);position:relative}
 .paso .n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800}
@@ -175,7 +190,7 @@ pre.prompt{white-space:pre-wrap;background:var(--navy-d);color:#e6ecf5;border-ra
     <h1>Redacción y revisión de documentos</h1>
     <div class="sub">Casos leídos de la carpeta <b>Legal</b> (SharePoint sincronizado con OneDrive) · plantillas · revisión ortográfica</div>
   </div>
-  <div class="der"><span class="chip">Usuaria: Omayra · Legal</span><button class="hbtn" id="btnReset" title="Vuelve la demo a su estado inicial">↺ Reiniciar demo</button></div>
+  <div class="der"><button class="hbtn" id="btnPropuesta">📋 Ver propuesta</button><span class="chip">Usuaria: Omayra · Legal</span><button class="hbtn" id="btnReset" title="Vuelve la demo a su estado inicial">↺ Reiniciar demo</button></div>
 </div>
 <div class="aviso">⚠ <b>Demostración.</b> Todos los casos, nombres, montos y documentos son <b>inventados</b> para mostrar el funcionamiento. En el sistema real se leen las carpetas de Legal y los modelos aprobados por M&amp;A Capital.</div>
 
@@ -184,7 +199,7 @@ pre.prompt{white-space:pre-wrap;background:var(--navy-d);color:#e6ecf5;border-ra
   <button class="tab" data-t="docs" aria-selected="false">📄 Documentos guardados</button>
   <button class="tab" data-t="plant" aria-selected="false">🧩 Plantillas</button>
   <button class="tab" data-t="revisar" aria-selected="false">🔎 Lectura y corrección</button>
-  <button class="tab" data-t="como" aria-selected="false">ℹ Cómo funciona</button>
+  <button class="tab" data-t="como" aria-selected="false">📋 Propuesta y cómo funciona</button>
 </nav>
 
 <main>
@@ -474,6 +489,7 @@ function ir(v){ vista=v; document.querySelectorAll(".tab").forEach(b=>b.setAttri
   ["casos","docs","plant","revisar","como","editor"].forEach(x=>$("v-"+x).classList.toggle("hidden",x!==v));
   if(v==="docs") pintarDocs(); if(v==="plant") pintarPl(); if(v==="como") pintarComo(); if(v==="revisar") pintarRevisar(); window.scrollTo(0,0); }
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>ir(b.dataset.t));
+$("btnPropuesta").onclick=()=>ir("como");
 $("btnReset").onclick=()=>{ try{ localStorage.removeItem(CLAVE); }catch(e){} ST=cargar(); ir("casos"); pintarCasos(CASOS[0].id); };
 
 /* =====================================================================
@@ -826,15 +842,17 @@ $("rvFile").onchange=async e=>{ const f=e.target.files[0]; e.target.value=""; if
 /* =====================================================================
    Cómo funciona
    ===================================================================== */
-const PEDIDO=`Para preparar la redacción automática de documentos en el Agente Legal necesitamos:
+const PEDIDO=`Información y materiales necesarios para implementar la redacción y revisión de documentos en el Agente Legal:
 
-1. La lista de los documentos que más redactan (por ejemplo: promesas de compraventa, contratos de arrendamiento, poderes, acuerdos de confidencialidad, cartas, actas). Con los 8 a 10 más frecuentes es suficiente para empezar.
-2. Un modelo en Word, vigente y aprobado, de cada uno de esos documentos.
-3. En cada modelo, marcar en amarillo los datos que cambian de un caso a otro (nombres, cédulas o RUC, fincas, montos, fechas, plazos).
-4. Dos o tres ejemplos ya firmados de cada tipo (pueden ser de casos cerrados), para comprobar que el sistema llena bien los datos.
-5. La estructura de carpetas de Legal en SharePoint: cómo se nombran los casos y qué subcarpetas tiene cada caso.
-6. Las reglas de estilo de la firma: formato de fechas, montos en letras y números, uso de mayúsculas y bloque de firmas.
-7. Quién aprueba los modelos y quién puede crear o cambiar una plantilla.`;
+1. La lista de los documentos que más redactan (con los 8 a 10 más frecuentes es suficiente para empezar).
+2. Un modelo en Word, vigente y aprobado, de cada uno.
+3. En cada modelo, resaltar en amarillo los datos que cambian de un caso a otro.
+4. Por cada tipo de proceso, la lista de documentos que debe tener el expediente.
+5. Dos o tres ejemplos de cada tipo, para las pruebas.
+6. Cómo nombran los casos y las subcarpetas dentro de la carpeta de Legal.
+7. Las reglas de estilo: formato de fechas, montos en letras y números, mayúsculas y bloque de firmas.
+8. Quién aprueba los modelos y quién puede crear o modificar plantillas.
+9. Las reglas de lógica para detectar faltantes: qué debe tener cada documento o expediente según el caso (si tiene esto, le falta esto; tipo sí o no).`;
 const PROMPT_IA=`Eres el asistente legal interno de M&A Capital (Panamá).
 Trabajas SOLO con los documentos del caso que se te entregan.
 
@@ -855,47 +873,72 @@ Revisión del documento terminado:
 - Compara montos en letras contra cifras, nombres y cédulas contra los documentos del caso, y fechas y plazos.
 - No cambies el contenido legal: solo propone; la abogada acepta o rechaza cada cambio.`;
 function pintarComo(){
+  const paso=(n,t,p)=>`<div class="paso"><span class="n">${n}</span><b>${t}</b><p>${p}</p></div>`;
   $("docComo").innerHTML=`
-  <div class="panel"><h2>1. Las carpetas: SharePoint → OneDrive → Agente Legal</h2>
-    <p>Es el mismo sistema que ya usa el Dashboard de Contabilidad. Como las carpetas de SharePoint ya están sincronizadas con OneDrive, el Agente Legal lee directamente la carpeta <b>Legal</b> en la computadora de Omayra. <b>No hay que subir archivos uno por uno</b>: lo que esté en la carpeta aparece en el sistema.</p>
-    <ul><li>Cada subcarpeta es un <b>caso</b>. Omayra elige en la pestaña <b>Casos</b> cuál revisar o a cuál dar seguimiento.</li>
-      <li>El sistema lee PDF, Word y Excel del caso. La IA extrae los datos (partes, cédulas, RUC, fincas, montos, fechas) e indica <b>de qué archivo salió cada uno</b>.</li>
-      <li>Los documentos redactados se guardan como Word en la carpeta Legal, así quedan en SharePoint para todo el equipo.</li>
-      <li>Los permisos siguen siendo los de SharePoint: cada persona solo ve las carpetas que ya tiene compartidas.</li></ul></div>
+  <div class="panel portada">
+    <div class="k">M&amp;A Capital · Agente Legal</div>
+    <h2 style="font-size:22px;margin:4px 0 8px">Propuesta: redacción y revisión de documentos legales</h2>
+    <p>Integración del Agente Legal con las carpetas de Legal sincronizadas desde SharePoint, redacción de documentos a partir de plantillas aprobadas y revisión automática de expedientes y documentos.</p>
+    <div class="indice"><a href="#s1">1. Carpetas de Legal</a><a href="#s2">2. Redacción</a><a href="#s3">3. Revisión</a><a href="#s4">4. Proceso</a><a href="#s5">5. Materiales</a></div>
+  </div>
 
-  <div class="panel"><h2>2. Redacción de documentos: cómo funciona</h2>
+  <div class="panel" id="s1"><h2>1. Documentos de Legal desde las carpetas sincronizadas</h2>
+    <p>Funciona igual que en las demostraciones de Pantera: el Agente Legal lee directamente la carpeta de Legal sincronizada desde SharePoint.</p>
+    <ul><li>Omayra <b>no necesita subir archivos ni carpetas manualmente</b>.</li>
+      <li>Cada subcarpeta se reconoce como un <b>caso</b>; desde el sistema, ella elige cuáles revisar y a cuáles dar seguimiento.</li>
+      <li>Todo documento que se agregue en SharePoint <b>aparece automáticamente</b>.</li>
+      <li>Solo se requiere <b>establecer la ruta</b> de la carpeta una única vez.</li></ul></div>
+
+  <div class="panel" id="s2"><h2>2. Redacción de documentos</h2>
+    <p>Es posible, con una función similar a la presentada. El flujo de trabajo es el siguiente:</p>
     <div class="flujo">
-      <div class="paso"><span class="n">1</span><b>Modelo en Word</b><p>El documento aprobado que la firma ya usa.</p></div>
-      <div class="paso"><span class="n">2</span><b>Plantilla</b><p>Se marcan los datos que cambian como campos: {{Comprador}}, {{Finca}}…</p></div>
-      <div class="paso"><span class="n">3</span><b>Elegir el caso</b><p>Omayra elige plantilla y caso en «Nuevo documento».</p></div>
-      <div class="paso"><span class="n">4</span><b>Datos automáticos</b><p>La IA llena los campos con los documentos del caso y dice la fuente.</p></div>
-      <div class="paso"><span class="n">5</span><b>Revisión</b><p>Ortografía, campos vacíos y montos en letras contra cifras.</p></div>
-      <div class="paso"><span class="n">6</span><b>Word final</b><p>Se descarga o se guarda en la carpeta Legal.</p></div>
+      ${paso(1,"Modelo en Word","Cada tipo de documento parte de su modelo en Word.")}
+      ${paso(2,"Plantilla","El modelo se convierte en plantilla, marcando los datos que cambian de un caso a otro: partes, cédulas, finca, montos, fechas y plazos.")}
+      ${paso(3,"Llenado automático","Omayra elige la plantilla y el caso; el sistema completa los datos con los documentos del caso, indica de qué archivo proviene cada uno y redacta los montos en letras o cualquier otro dato que se requiera, según la lógica que se establezca.")}
+      ${paso(4,"Datos faltantes","Lo que no aparece en los documentos queda en blanco para completarlo a mano: el sistema no inventa información. Se puede establecer una lógica de sugerencias y que marque claramente lo que falta.")}
+      ${paso(5,"Revisión y descarga","Omayra revisa y ajusta el texto en el mismo sistema, y lo descarga en Word o PDF.")}
     </div>
-    <h3>¿Se necesita una plantilla por cada tipo de documento?</h3>
-    <p><b>Sí, se recomienda.</b> Cada tipo de documento (promesa de compraventa, arrendamiento, poder, NDA, carta, acta…) necesita su modelo. Así el texto legal siempre es el aprobado por la firma y la IA solo completa datos; no redacta cláusulas por su cuenta. Si un documento tiene variantes importantes (por ejemplo, persona natural o sociedad), se hace una plantilla para cada variante.</p>
-    <p>Las plantillas se manejan desde la pestaña <b>Plantillas</b> sin programar: <b>Usar, Ver, Editar, Duplicar y Desactivar</b>. También se puede crear una plantilla subiendo directamente el Word del modelo y marcando los campos con <b>＋ Campo</b>.</p>
-    <h3>Revisión ortográfica</h3>
-    <p>Dos niveles: mientras se escribe, el navegador subraya en rojo las palabras que no reconoce (diccionario de español). Con <b>Revisar ortografía</b>, el sistema lista cada falta (tildes, palabras mal escritas, palabras repetidas, espacios dobles) con su corrección, y Omayra decide <b>Corregir</b> o <b>Ignorar</b>. En el sistema real esta revisión la hace la IA, que además detecta errores de gramática y concordancia. En esta demo se usa una lista de errores frecuentes para mostrar el funcionamiento.</p>
-    <h3>Detección de lo que falta</h3>
-    <p>El sistema revisa por lógica, sin depender de nadie, tres cosas: <b>(1) el expediente</b>: compara los documentos que debe tener cada tipo de caso (cédulas, certificado del Registro Público, paz y salvos, documento firmado…) con los archivos de la carpeta, y marca cada uno como <b>Completo</b>, <b>Por revisar</b> (por ejemplo, solo hay un borrador) o <b>Falta</b>; <b>(2) los datos</b>: qué datos necesita la plantilla que no aparecen en ningún documento del caso; y <b>(3) cada documento</b>: si le faltan elementos que todo documento de ese tipo debe tener (identificación de las partes, plazo, quién paga los gastos, fecha de firma, bloque de firmas…). Las listas de requisitos las define Legal para cada tipo de proceso.</p>
-    <h3>Lectura y corrección de documentos existentes</h3>
-    <p>Además de redactar, Omayra puede abrir cualquier Word que ya exista (de la carpeta del caso o uno que reciba de la contraparte). El sistema lo lee, marca las faltas de ortografía, los datos sin llenar y los montos en letras que no coinciden con la cifra, y permite descargar el Word corregido.</p></div>
+    <div class="destacado"><b>¿Se necesita una plantilla predeterminada para cada tipo de documento?</b><br>
+      Sí, es lo recomendable. Con un modelo por cada tipo de documento, el texto legal siempre es el aprobado y el sistema solo completa los datos, sin redactar cláusulas por su cuenta. Si un documento tiene variantes importantes (por ejemplo, persona natural o sociedad), se prepara una plantilla para cada variante. Las plantillas se administran desde el propio sistema (<b>usar, ver, editar, duplicar y desactivar</b>), sin necesidad de programar.</div></div>
 
-  <div class="panel"><h2>3. Proceso de programación, a grandes rasgos</h2>
-    <ol><li><b>Inventario:</b> recibir la lista de documentos y sus modelos en Word.</li>
-      <li><b>Plantillas:</b> convertir cada modelo en plantilla, marcando sus campos.</li>
-      <li><b>Mapa de datos:</b> definir de qué documento del caso sale cada dato (cédula, certificado del Registro Público, pacto social, avalúo…).</li>
-      <li><b>Revisión:</b> ajustar la revisión ortográfica y las validaciones al estilo de la firma.</li>
-      <li><b>Pruebas:</b> redactar documentos de casos ya cerrados y compararlos con los firmados, junto con Omayra.</li>
-      <li><b>Puesta en marcha:</b> uso diario, y ajustes según lo que Omayra vaya pidiendo.</li></ol></div>
+  <div class="panel" id="s3"><h2>3. Revisión: qué falta, ortografía y corrección</h2>
+    <p>Además de redactar, el sistema ayuda a Omayra a controlar cada caso:</p>
+    <div class="tarjetas">
+      <div class="tj"><b>🧾 Qué falta en el expediente</b><p>Compara los documentos que debe tener cada tipo de caso (cédulas, certificado del Registro Público, paz y salvos, documento firmado, etc.) con los archivos de la carpeta, y marca cada uno como <b>completo</b>, <b>por revisar</b> o <b>faltante</b>.</p></div>
+      <div class="tj"><b>📋 Qué datos faltan</b><p>Indica qué información necesita el documento que no aparece en ningún archivo del caso.</p></div>
+      <div class="tj"><b>🔍 Qué le falta a cada documento</b><p>Detecta si le faltan elementos esenciales, como la identificación de las partes, el plazo, la fecha de firma o el bloque de firmas.</p></div>
+      <div class="tj"><b>✍ Ortografía y consistencia</b><p>Marca faltas de ortografía, palabras repetidas, datos sin llenar y montos en letras que no coinciden con la cifra; Omayra decide qué corregir.</p></div>
+      <div class="tj"><b>📄 Lectura y corrección</b><p>Permite abrir cualquier Word existente, incluso los que se reciban de la contraparte, revisarlo y descargarlo corregido.</p></div>
+    </div></div>
 
-  <div class="panel"><h2>4. Lo que necesitamos de ustedes <button class="btn sm copiar" id="cpPedido">Copiar texto</button></h2>
-    <pre class="prompt" id="txPedido">${esc(PEDIDO)}</pre></div>
+  <div class="panel" id="s4"><h2>4. Proceso de programación, a grandes rasgos</h2>
+    <div class="linea">
+      ${paso(1,"Inventario","Recibir la lista de documentos y sus modelos en Word.")}
+      ${paso(2,"Plantillas","Convertir cada modelo en plantilla, marcando sus datos variables.")}
+      ${paso(3,"Origen de los datos","Definir de qué documento del caso se toma cada dato.")}
+      ${paso(4,"Requisitos","Cargar la lista de documentos requeridos por tipo de proceso, para la detección de faltantes.")}
+      ${paso(5,"Pruebas","Probar con casos ya cerrados, junto con Omayra, y comparar con los documentos finales que se compartan como ejemplo.")}
+      ${paso(6,"Puesta en marcha","Uso diario y ajustes según la experiencia.")}
+    </div></div>
 
-  <div class="panel"><h2>5. Instrucción que usa la IA (prompt) <button class="btn sm copiar" id="cpPrompt">Copiar texto</button></h2>
-    <p>Esta es la instrucción base con la que trabaja la IA. La regla principal: <b>no inventa datos</b>; si algo no está en los documentos, lo deja en blanco y avisa.</p>
+  <div class="panel" id="s5"><h2>5. Información y materiales necesarios <button class="btn sm copiar" id="cpPedido">Copiar texto</button></h2>
+    <ol class="mat">
+      <li>La lista de los documentos que más redactan (con los 8 a 10 más frecuentes es suficiente para empezar).</li>
+      <li>Un modelo en Word, vigente y aprobado, de cada uno.</li>
+      <li>En cada modelo, resaltar en amarillo los datos que cambian de un caso a otro.</li>
+      <li>Por cada tipo de proceso, la lista de documentos que debe tener el expediente.</li>
+      <li>Dos o tres ejemplos de cada tipo, para las pruebas.</li>
+      <li>Cómo nombran los casos y las subcarpetas dentro de la carpeta de Legal.</li>
+      <li>Las reglas de estilo: formato de fechas, montos en letras y números, mayúsculas y bloque de firmas.</li>
+      <li>Quién aprueba los modelos y quién puede crear o modificar plantillas.</li>
+      <li>Las reglas de lógica para detectar faltantes: qué debe tener cada documento o expediente según el caso (<i>si tiene esto, le falta esto</i>; tipo sí o no).</li>
+    </ol>
+    <pre class="hidden" id="txPedido">${esc(PEDIDO)}</pre></div>
+
+  <div class="panel"><h2>Anexo: instrucción que usa la IA (prompt) <button class="btn sm copiar" id="cpPrompt">Copiar texto</button></h2>
+    <p>Instrucción base con la que trabaja la IA. La regla principal: <b>no inventa datos</b>; si algo no está en los documentos, lo deja en blanco y avisa.</p>
     <pre class="prompt" id="txPrompt">${esc(PROMPT_IA)}</pre></div>`;
+  $("docComo").querySelectorAll(".indice a").forEach(a=>a.onclick=e=>{ e.preventDefault(); document.querySelector(a.getAttribute("href")).scrollIntoView({behavior:"smooth",block:"start"}); });
   const copiar=(id,b)=>{ const t=$(id).textContent; const ok=()=>{ b.textContent="✓ Copiado"; setTimeout(()=>b.textContent="Copiar texto",1500); };
     try{ navigator.clipboard.writeText(t).then(ok).catch(()=>{ b.textContent="Selecciona y copia"; }); }catch(e){ b.textContent="Selecciona y copia"; } };
   $("cpPedido").onclick=e=>copiar("txPedido",e.target); $("cpPrompt").onclick=e=>copiar("txPrompt",e.target);
