@@ -340,6 +340,7 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
     <div class="mtabs hidden" role="tablist" id="mtabs">
       <button class="mtab" data-tab="lector" aria-selected="true">📁 Lector de carpeta <span class="cnt" id="cntArchivos">0</span></button>
       <button class="mtab" data-tab="pantera" aria-selected="false">🐆 Reportería Pantera</button>
+      <button class="mtab" data-tab="mapa" aria-selected="false">🗺 Mapa del portafolio</button>
     </div>
     <div class="hbtns">
       <button class="hbtn pri" id="btnActualizar" disabled>↻ Actualizar</button>
@@ -383,6 +384,14 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
       <div class="pframe-wrap">
         <iframe id="panteraFrame" title="Reportería Pantera"></iframe>
         <div class="ploading hidden" id="pLoading"><div class="spin"></div><div id="pLoadingTxt">Armando la reportería Pantera…</div></div>
+      </div>
+    </section>
+
+    <!-- ---------- Pestaña: Mapa del portafolio (se lee de la carpeta) ---------- -->
+    <section id="tab-mapa" class="hidden">
+      <div class="pframe-wrap">
+        <iframe id="mapaFrame" title="Mapa del portafolio Pantera" class="hidden" style="display:block;width:100%;height:100%;min-height:480px;border:1px solid var(--border);border-radius:14px;background:#fff;box-shadow:var(--shadow)"></iframe>
+        <div class="connect" id="mapaVacio"><div class="big">🗺</div><h2>Mapa del portafolio</h2><p id="mapaTxt">Leyendo la carpeta…</p></div>
       </div>
     </section>
 
@@ -437,7 +446,7 @@ const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 
 /* Página propia de Pantera: el inicio, Usuarios y las demás apps son otros HTML. */
 document.body.classList.add("enModulo");
-const TABS=["lector","pantera"];
+const TABS=["lector","pantera","mapa"];
 function setTab(t){
   // una pestaña que el rol no tiene (o desconocida) vuelve al lector
   const btn=document.querySelector(`.mtab[data-tab="${t}"]`);
@@ -446,6 +455,25 @@ function setTab(t){
   document.querySelectorAll(".mtab").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
   TABS.forEach(x=>$("tab-"+x).classList.toggle("hidden",x!==t));
   if(t==="pantera"){ try{ pFrame.contentWindow.dispatchEvent(new Event("resize")); }catch(e){} }
+  if(t==="mapa") cargarMapa();
+}
+/* ---------- Mapa del portafolio: el HTML del mapa vive en la carpeta (no en GitHub) ---------- */
+let MAPAS=[], MAPA_URL=null, MAPA_KEY="";
+async function cargarMapa(){
+  const fr=$("mapaFrame"), va=$("mapaVacio"), tx=$("mapaTxt");
+  if(!DIR_HANDLE){ fr.classList.add("hidden"); va.classList.remove("hidden"); tx.innerHTML="Conecta la carpeta para ver el mapa."; return; }
+  const m=MAPAS.slice().sort((a,b)=>(b.mod||0)-(a.mod||0))[0];
+  if(!m){ fr.classList.add("hidden"); va.classList.remove("hidden");
+    tx.innerHTML="No hay un mapa en la carpeta. Copia el archivo del mapa (por ejemplo <b>Pantera-Portfolio-Map.html</b>) dentro de <b>"+esc(DIR_HANDLE.name)+"</b> y pulsa <b>Actualizar</b>. El nombre del archivo debe contener «map» o «mapa».<br><br>Así los datos del portafolio quedan solo en OneDrive y no se publican en internet."; return; }
+  const key=m.ruta+"|"+m.mod; if(key===MAPA_KEY&&MAPA_URL){ fr.classList.remove("hidden"); va.classList.add("hidden"); return; }
+  tx.textContent="Abriendo "+m.nombre+"…"; va.classList.remove("hidden");
+  try{ let html=await (await m.handle.getFile()).text();
+    // el fondo «Streets» de CARTO ahora pide clave: se cambia por Esri (sin clave)
+    html=html.replace(/https:\/\/\{s\}\.basemaps\.cartocdn\.com\/rastertiles\/voyager\/\{z\}\/\{x\}\/\{y\}\{r\}\.png/g,"https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}");
+    if(MAPA_URL) URL.revokeObjectURL(MAPA_URL);
+    MAPA_URL=URL.createObjectURL(new Blob([html],{type:"text/html"})); MAPA_KEY=key;
+    fr.src=MAPA_URL; fr.classList.remove("hidden"); va.classList.add("hidden");
+  }catch(e){ tx.innerHTML="No se pudo abrir el mapa: "+esc(e.message); }
 }
 document.querySelectorAll(".mtab").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 
@@ -570,12 +598,13 @@ async function* recorrer(dir, ruta){
     if(nombre.startsWith(".")||nombre.startsWith("~$")) continue;
     if(h.kind==="directory") yield* recorrer(h, ruta+nombre+"/");
     else if(/\.(xlsx|xlsm|xls|csv)$/i.test(nombre)) yield {nombre, ruta:ruta+nombre, handle:h};
+    else if(/\.html?$/i.test(nombre)&&/map/i.test(nombre)) MAPAS.push({nombre, ruta:ruta+nombre, handle:h});
   }
 }
 async function escanear(forzar){
   if(!DIR_HANDLE) return;
   $("hdrSub").textContent="Leyendo la carpeta "+DIR_HANDLE.name+"…";
-  const lista=[];
+  const lista=[]; MAPAS=[];
   try{ for await (const f of recorrer(DIR_HANDLE,"")) lista.push(f); }
   catch(e){
     const nombre=DIR_HANDLE.name;
@@ -599,6 +628,8 @@ async function escanear(forzar){
     try{const file=await f.handle.getFile(); f.mod=file.lastModified; f.size=file.size;}catch(e){}
   }
   ARCHIVOS=lista;
+  for(const m of MAPAS){ try{ m.mod=m.handle.meta?m.handle.meta.mod:(await m.handle.getFile()).lastModified; }catch(e){} }
+  if(TAB==="mapa") cargarMapa();
   construirArbol();
   pintarPeriodo(); if(SEL){ const f=ARCHIVOS.find(a=>a.ruta===SEL); if(f&&!(f.anio===PER.anio&&(!PER.mes||f.mes===PER.mes))) SEL=null; }
   $("cntArchivos").textContent=ARCHIVOS.length;
@@ -879,7 +910,7 @@ MA.listo.then(async c=>{
   SB_USER=c.user; SB_ROL=c.rol; SB_MODS=c.modulos;
   $("rolChip").textContent=MA.ROL_TXT[c.rol]||c.rol; $("rolChip").classList.remove("hidden"); $("btnSalir").classList.remove("hidden");
   borrarDatosPantera(); reiniciarPantera(true);
-  setTab(lsGet("martina_tab")||"lector");
+  setTab(location.hash==="#mapa"?"mapa":(lsGet("martina_tab")||"lector"));
   $("hdrSub").textContent="Conectando con la carpeta…";
   // acceso directo o Microsoft 365: lee solo, sin que Chrome pregunte
   const f=await MA.fuente("PruebaDashboard");
