@@ -793,14 +793,17 @@ function setTab(t){
   if(t==="pantera"){ try{ pFrame.contentWindow.dispatchEvent(new Event("resize")); }catch(e){} }
   if(t==="mapa") cargarMapa();
 }
-/* ---------- Mapa del portafolio: el HTML del mapa vive en la carpeta (no en GitHub) ---------- */
+/* ---------- Mapa del portafolio: el HTML del mapa vive en GitHub (Pantera-Portfolio-Map.html, junto a esta página).
+   Si en la carpeta de OneDrive hay un archivo *map*.html más reciente, ese tiene prioridad. ---------- */
+const MAPA_GITHUB="Pantera-Portfolio-Map.html";
 let MAPAS=[], MAPA_URL=null, MAPA_KEY="";
 async function cargarMapa(){
   const fr=$("mapaFrame"), va=$("mapaVacio"), tx=$("mapaTxt");
-  if(!DIR_HANDLE){ fr.classList.add("hidden"); va.classList.remove("hidden"); tx.innerHTML="Conecta la carpeta para ver el mapa."; return; }
-  const m=MAPAS.slice().sort((a,b)=>(b.mod||0)-(a.mod||0))[0];
-  if(!m){ fr.classList.add("hidden"); va.classList.remove("hidden");
-    tx.innerHTML="No hay un mapa en la carpeta. Copia el archivo del mapa (por ejemplo <b>Pantera-Portfolio-Map.html</b>) dentro de <b>"+esc(DIR_HANDLE.name)+"</b> y pulsa <b>Actualizar</b>. El nombre del archivo debe contener «map» o «mapa».<br><br>Así los datos del portafolio quedan solo en OneDrive y no se publican en internet."; return; }
+  const m=DIR_HANDLE?MAPAS.slice().sort((a,b)=>(b.mod||0)-(a.mod||0))[0]:null;
+  if(!m){
+    if(MAPA_KEY!=="github"){ if(MAPA_URL){ URL.revokeObjectURL(MAPA_URL); MAPA_URL=null; } MAPA_KEY="github"; fr.src=MAPA_GITHUB+"?v="+Date.now(); }
+    fr.classList.remove("hidden"); va.classList.add("hidden"); return;
+  }
   const key=m.ruta+"|"+m.mod; if(key===MAPA_KEY&&MAPA_URL){ fr.classList.remove("hidden"); va.classList.add("hidden"); return; }
   tx.textContent="Abriendo "+m.nombre+"…"; va.classList.remove("hidden");
   try{ let html=await (await m.handle.getFile()).text();
