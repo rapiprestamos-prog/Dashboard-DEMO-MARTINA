@@ -58,7 +58,7 @@ window.MA=(function(){
     if(O.cabecera===false||$("maHdr")) return;
     const h=document.createElement("div"); h.className="ma-hdr"; h.id="maHdr";
     h.innerHTML=`<div class="ma-b"><img class="ma-logo" src="${LOGO}" alt="M&amp;A Capital Inc"><div class="ma-sep"></div><div>
-      <a class="ma-k" href="index.html" title="Volver al inicio">← M&amp;A Capital · Inicio · ${esc(VERSION)}</a><h1>${esc(O.titulo||"")}</h1><div class="ma-sub" id="maSub">Inicia sesión para entrar</div></div></div>
+      <a class="ma-k" href="index.html" title="Volver al inicio">← M&amp;A Capital · Inicio</a><h1>${esc(O.titulo||"")}</h1><div class="ma-sub" id="maSub">Inicia sesión para entrar</div></div></div>
       <div class="ma-der"><span id="maExtra"></span><span class="ma-chip ma-oculto" id="maChip"></span><button class="ma-hbtn ma-oculto" id="maSalir" title="Cerrar sesión">⎋ Salir</button></div>`;
     document.body.prepend(h); $("maSalir").onclick=()=>salir();
   }

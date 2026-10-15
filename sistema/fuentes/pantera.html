@@ -338,7 +338,7 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
       <img class="mlogo" src="__LOGO_GOLD__" alt="Pantera Real Estate Fund">
       <div class="msep"></div>
       <div>
-        <a class="kback" id="btnVolver" href="index.html" title="Volver al inicio" style="text-decoration:none">← M&amp;A Capital · Inicio · Pantera Real Estate Fund · __VERSION__</a>
+        <a class="kback" id="btnVolver" href="index.html" title="Volver al inicio" style="text-decoration:none">← M&amp;A Capital · Inicio · Pantera Real Estate Fund</a>
         <h1>Reportería <span class="mart">Martina</span></h1>
         <div class="sub" id="hdrSub">Conectando con la carpeta…</div>
       </div>
@@ -471,8 +471,19 @@ const MAPA_GITHUB="Pantera-Portfolio-Map.html";
 let MAPAS=[], MAPA_URL=null, MAPA_KEY="";
 /* Rueda del ratón sobre el mapa: primero baja la página hasta que el mapa llena la pantalla;
    recién entonces la rueda hace zoom en el mapa o desplaza la lista (si no, el mapa se "comía" el scroll). */
+const MAPA_CSS=`html,body{overflow:hidden!important}
+.leaflet-container:focus,.leaflet-container:focus-visible{outline:none!important}
+@media (min-width:901px) and (max-width:1420px){
+  header.top{gap:16px!important;padding:8px 18px!important}
+  .brand .logoimg{height:46px!important} .brand .sub{display:none!important}
+  .kpis{gap:16px!important;min-width:0} .kpi{min-width:0!important} .kpi .v{font-size:15px!important} .kpi .l{font-size:10px!important}
+  .filters{padding:10px 18px 0!important} .searchbar{padding:10px 18px!important}
+}`;
 function engancharRueda(){ const fr=$("mapaFrame"); let d; try{ d=fr.contentDocument; }catch(e){ return; }
   if(!d||d.__maRueda) return; d.__maRueda=true;
+  /* ajuste visual del mapa dentro del dashboard: sin desbordes ni desplazamientos raros */
+  try{ const st=d.createElement("style"); st.textContent=MAPA_CSS; (d.head||d.documentElement).appendChild(st);
+    d.documentElement.scrollLeft=0; d.documentElement.scrollTop=0; }catch(e){}
   d.addEventListener("wheel",e=>{ if(TAB!=="mapa") return;
     const top=fr.getBoundingClientRect().top-8, dy=e.deltaY*(e.deltaMode===1?40:e.deltaMode===2?window.innerHeight:1);
     if(dy>0&&top>1){ e.preventDefault(); e.stopPropagation(); window.scrollBy(0,Math.min(dy,top)); }
