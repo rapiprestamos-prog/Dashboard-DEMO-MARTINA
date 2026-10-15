@@ -100,6 +100,17 @@ button{font-family:inherit}
 .side-top{padding:12px;border-bottom:1px solid var(--border);background:var(--surface-2)}
 .side-top input{width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface);font:inherit;color:var(--text);outline:none}
 .side-top input:focus{border-color:var(--navy)}
+.side-top label.dentro{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:12px;color:var(--text-2);font-weight:600;cursor:pointer}
+.side-top label.dentro input{width:auto;padding:0}
+.dentro-st{font-size:11.5px;color:var(--muted);margin-top:4px;min-height:0}
+.dentro-st:empty{display:none}
+.bq-res{padding:6px 0;overflow:auto;flex:1;min-height:0}
+.bq-it{padding:12px 16px;border-bottom:1px solid var(--grid);cursor:pointer}
+.bq-it:hover{background:var(--surface-2)}
+.bq-it .bq-f{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px}
+.bq-it .bq-r{font-size:11.5px;color:var(--muted);margin:2px 0 6px 30px}
+.bq-it .bq-s{font-size:12.8px;color:var(--text-2);margin:3px 0 0 30px;line-height:1.45}
+.bq-it mark{background:#fff1c2;color:inherit;padding:0 2px;border-radius:3px;font-weight:700}
 /* El módulo ocupa exactamente la pantalla: sin desplazar la página, cada panel se desplaza por dentro */
 #viewModulo:not(.hidden),#viewUsuarios:not(.hidden),#viewApp:not(.hidden){display:flex;flex-direction:column;position:fixed;top:16px;right:24px;bottom:16px;left:24px}
 #viewUsuarios>*{flex:none}
@@ -372,7 +383,7 @@ table.fl .r{text-align:right;white-space:nowrap;color:var(--text-2)}
     <p id="connectText">Elige la carpeta <b>__CARPETA__</b> de OneDrive (la que tiene adentro los años y los meses). Solo se hace la primera vez en esta PC: elige <b>“Permitir en cada visita”</b>.</p>
     <button class="btn gold" id="btnConectar" style="font-size:14px;padding:11px 22px">📂 Conectar carpeta</button></div>
   <div class="lector hidden" id="lectorBox">
-    <div class="panel"><div class="side-top"><input type="text" id="buscador" placeholder="🔍  Buscar archivo…"></div><div class="tree" id="tree"></div></div>
+    <div class="panel"><div class="side-top"><input type="text" id="buscador" placeholder="🔍  Buscar archivo…"><label class="dentro"><input type="checkbox" id="buscarDentro"> Buscar también dentro de los documentos</label><div class="dentro-st" id="dentroSt"></div></div><div class="tree" id="tree"></div></div>
     <div class="panel" id="viewer"></div>
   </div>
 <!--REP_BOX-->
@@ -529,7 +540,7 @@ function renderTree(){
   anios.forEach(a=>{
     let yHtml="", yCount=0;
     mesesOrden(a).forEach(m=>{
-      const fs=ARBOL[a][m].filter(f=>!q||norm(f.ruta).includes(q)).sort((x,y)=>x.nombre.localeCompare(y.nombre,"es"));
+      const fs=ARBOL[a][m].filter(f=>!q||norm(f.ruta).includes(q)||(DENTRO_ON()&&HALLADOS.has(f.ruta))).sort((x,y)=>x.nombre.localeCompare(y.nombre,"es"));
       if(!fs.length) return; yCount+=fs.length;
       const mOpen = q || ABIERTOS.has("m:"+a+"/"+m);
       yHtml+=`<div class="${mOpen?"":"closed"}"><div class="m-row${SEL==="m:"+a+"/"+m?" sel":""}" data-k="m:${esc(a+"/"+m)}" title="Ver el mes completo"><span class="chev">▼</span><span class="mn">${esc(m)}</span><span class="pill">${fs.length}</span></div><div class="kids">`+
@@ -548,7 +559,48 @@ function renderTree(){
     ABIERTOS.add(k); r.parentElement.classList.remove("closed"); abrirVista(k); });
   tree.querySelectorAll(".f-row").forEach(r=>r.onclick=()=>abrirArchivo(r.dataset.r));
 }
-$("buscador").oninput=renderTree;
+$("buscador").oninput=()=>alBuscar();
+
+/* ============================ buscar dentro de los documentos ============================ */
+const TXT=new Map(); let HALLADOS=new Set(), BQ_ID=0, BQ_T=null;
+const DENTRO_ON=()=>$("buscarDentro").checked&&$("buscador").value.trim().length>=3;
+let PDFJS=null;
+async function cargarPdfjs(){ if(PDFJS) return PDFJS; await new Promise((ok,no)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"; s.onload=ok; s.onerror=()=>no(new Error("no se pudo cargar el lector de PDF")); document.head.appendChild(s); });
+  PDFJS=window.pdfjsLib; PDFJS.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; return PDFJS; }
+async function textoDe(f){
+  const k=f.ruta+"|"+f.mod; if(TXT.has(k)) return TXT.get(k);
+  const ext=(f.nombre.split(".").pop()||"").toLowerCase(); let t="";
+  try{ const file=await f.handle.getFile();
+    if(["xlsx","xlsm","xls","csv"].includes(ext)){ const wb=XLSX.read(await file.arrayBuffer(),{type:"array"}); t=wb.SheetNames.map(n=>n+"\n"+XLSX.utils.sheet_to_csv(wb.Sheets[n],{FS:" | "})).join("\n"); }
+    else if(ext==="docx"&&window.mammoth){ t=(await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()})).value||""; }
+    else if(ext==="pdf"){ const lib=await cargarPdfjs(); const pdf=await lib.getDocument({data:await file.arrayBuffer()}).promise; const ps=[];
+      for(let i=1;i<=Math.min(pdf.numPages,60);i++){ const c=await (await pdf.getPage(i)).getTextContent(); ps.push(c.items.map(x=>x.str).join(" ")); } t=ps.join("\n"); }
+    else if(["txt","json","xml","html","htm"].includes(ext)){ t=await file.text(); }
+  }catch(e){ t=""; }
+  TXT.set(k,t); return t;
+}
+function fragmentos(texto,q,max){ const T=norm(texto), out=[]; let i=T.indexOf(q), n=0;
+  while(i>=0){ n++; if(out.length<max){ const a=Math.max(0,i-60), b=Math.min(texto.length,i+q.length+60);
+      out.push((a?"…":"")+esc(texto.slice(a,i))+"<mark>"+esc(texto.slice(i,i+q.length))+"</mark>"+esc(texto.slice(i+q.length,b))+(b<texto.length?"…":"")); }
+    i=T.indexOf(q,i+q.length); }
+  return {n,out}; }
+async function buscarDentro(){
+  const id=++BQ_ID, q=norm($("buscador").value.trim());
+  if(!DENTRO_ON()){ HALLADOS=new Set(); $("dentroSt").textContent=$("buscarDentro").checked?"Escribe al menos 3 letras.":""; renderTree(); return; }
+  const lista=ARCHIVOS.filter(f=>/\.(xlsx|xlsm|xls|csv|docx|pdf|txt)$/i.test(f.nombre)); const res=[];
+  for(let k=0;k<lista.length;k++){ if(id!==BQ_ID) return; const f=lista[k]; $("dentroSt").textContent=`Leyendo ${k+1} de ${lista.length}…`;
+    const t=await textoDe(f); const fr=fragmentos(t,q,3); if(fr.n||norm(f.nombre).includes(q)) res.push({f,...fr}); }
+  if(id!==BQ_ID) return;
+  HALLADOS=new Set(res.map(r=>r.f.ruta)); renderTree();
+  $("dentroSt").textContent=`${res.length} archivo(s) contienen «${$("buscador").value.trim()}».`;
+  const v=$("viewer"); SEL=null; marcarSel();
+  v.innerHTML=`<div class="viewer-hdr"><div class="viewer-title"><div class="vt-left"><h2>🔎 «${esc($("buscador").value.trim())}» dentro de los documentos</h2><div class="viewer-meta">${res.length} archivo(s) · ${res.reduce((s,r)=>s+r.n,0)} coincidencia(s) · se buscó en Excel, Word, PDF y texto</div></div></div></div>
+    <div class="bq-res">${res.length?res.sort((a,b)=>b.n-a.n).map(r=>`<div class="bq-it" data-r="${esc(r.f.ruta)}"><div class="bq-f">${icono(r.f.nombre)}${esc(r.f.nombre)}${r.n?`<span class="pill">${r.n}</span>`:""}</div><div class="bq-r">${esc(r.f.anio)} › ${esc(r.f.mes)}</div>${r.out.map(s=>`<div class="bq-s">${s}</div>`).join("")||'<div class="bq-s">Coincide el nombre del archivo.</div>'}</div>`).join("")
+      :'<div class="empty"><div class="big">🔎</div><b>Sin resultados</b>Ningún documento contiene ese texto. Los PDF escaneados (imagen) no tienen texto que leer.</div>'}</div>`;
+  v.querySelectorAll(".bq-it").forEach(x=>x.onclick=()=>abrirArchivo(x.dataset.r));
+}
+function alBuscar(){ renderTree(); clearTimeout(BQ_T); if($("buscarDentro").checked) BQ_T=setTimeout(buscarDentro,450); else { HALLADOS=new Set(); $("dentroSt").textContent=""; } }
+$("buscarDentro").onchange=()=>{ if($("buscarDentro").checked) buscarDentro(); else { BQ_ID++; HALLADOS=new Set(); $("dentroSt").textContent=""; renderTree(); } };
 
 /* ============================ visor de archivo ============================ */
 const vacioViewer=()=>`<div class="empty"><div class="big">📊</div><b>Elige un archivo</b>Selecciona un Excel del panel izquierdo para verlo aquí, organizado por hojas.</div>`;
@@ -737,7 +789,7 @@ if(lsGet(LS+"sideoff")==="1") document.body.classList.add("sideoff");
 $("btnActualizar").onclick=()=>escanear();
 $("btnCambiar").onclick=elegir;
 $("btnConectar").onclick=()=>conectar(true);
-$("buscador").oninput=renderTree;
+$("buscador").oninput=()=>alBuscar();
 async function revisar(){ if(!DIR_HANDLE||document.hidden) return; try{ const l=await leerLista(); if(firma(l)!==firma(ARCHIVOS)) await escanear(); }catch(e){} }
 setInterval(revisar,60000);
 { let u=0; const v=()=>{ if(document.hidden||Date.now()-u<5000) return; u=Date.now(); revisar(); }; addEventListener("focus",v); document.addEventListener("visibilitychange",v); }
