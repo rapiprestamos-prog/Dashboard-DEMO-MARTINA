@@ -117,8 +117,11 @@ body.enModulo{overflow:hidden}
 #viewModulo>*{flex:none}
 #viewModulo>#moduloBody:not(.hidden){flex:1;min-height:0;display:flex;flex-direction:column}
 #moduloBody>section:not(.hidden){flex:1;min-height:0}
-/* el mapa es más alto que el espacio libre: la pestaña baja (scroll) para verlo entero */
-#tab-mapa:not(.hidden){overflow-y:auto;overscroll-behavior:contain}
+/* Mapa: cabe en la pantalla; si la pantalla es muy baja, la pestaña baja y queda el botón de pantalla completa */
+#tab-mapa:not(.hidden){display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+#tab-mapa .mapa-bar{flex:none;display:flex;align-items:center;justify-content:flex-end;gap:12px;font-size:12px;color:var(--muted)}
+#tab-mapa #mapaWrap{flex:1;min-height:520px}
+#mapaFrame:fullscreen{border:0;border-radius:0}
 .lector>.panel{display:flex;flex-direction:column;min-height:0}
 .lector>.panel>*{flex:none}
 .lector>.panel>.tree{flex:1;min-height:0;overflow-y:auto;padding:6px 0}
@@ -391,8 +394,9 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
 
     <!-- ---------- Pestaña: Mapa del portafolio (se lee de la carpeta) ---------- -->
     <section id="tab-mapa" class="hidden">
-      <div class="pframe-wrap">
-        <iframe id="mapaFrame" title="Mapa del portafolio Pantera" class="hidden" style="display:block;width:100%;height:calc(100vh - 20px);min-height:760px;border:1px solid var(--border);border-radius:14px;background:#fff;box-shadow:var(--shadow)"></iframe>
+      <div class="mapa-bar"><span>Pulsa <b>Esc</b> para salir de la pantalla completa.</span><button class="btn gold sm" id="btnMapaFull" type="button">⛶ Ver en pantalla completa</button></div>
+      <div class="pframe-wrap" id="mapaWrap">
+        <iframe id="mapaFrame" title="Mapa del portafolio Pantera" class="hidden" allowfullscreen style="display:block;width:100%;height:100%;border:1px solid var(--border);border-radius:14px;background:#fff;box-shadow:var(--shadow)"></iframe>
         <div class="connect" id="mapaVacio"><div class="big">🗺</div><h2>Mapa del portafolio</h2><p id="mapaTxt">Leyendo la carpeta…</p></div>
       </div>
     </section>
@@ -463,13 +467,11 @@ function setTab(t){
    Si en la carpeta de OneDrive hay un archivo *map*.html más reciente, ese tiene prioridad. ---------- */
 const MAPA_GITHUB="Pantera-Portfolio-Map.html";
 let MAPAS=[], MAPA_URL=null, MAPA_KEY="";
-/* el mapa ocupa una pantalla completa; la página baja para verlo entero */
-function altoMapa(){ const fr=$("mapaFrame"); if(!fr||TAB!=="mapa") return;
-  fr.style.height=Math.max(760,window.innerHeight-20)+"px"; }
-window.addEventListener("resize",altoMapa);
+/* pantalla completa: el mapa usa toda la pantalla (Esc para salir) */
+$("btnMapaFull").onclick=()=>{ const fr=$("mapaFrame"); if(fr.classList.contains("hidden")) return;
+  (fr.requestFullscreen||fr.webkitRequestFullscreen).call(fr); };
 async function cargarMapa(){
   const fr=$("mapaFrame"), va=$("mapaVacio"), tx=$("mapaTxt");
-  setTimeout(altoMapa,0);
   const m=DIR_HANDLE?MAPAS.slice().sort((a,b)=>(b.mod||0)-(a.mod||0))[0]:null;
   if(!m){
     if(MAPA_KEY!=="github"){ if(MAPA_URL){ URL.revokeObjectURL(MAPA_URL); MAPA_URL=null; } MAPA_KEY="github"; fr.src=MAPA_GITHUB+"?v="+Date.now(); }
