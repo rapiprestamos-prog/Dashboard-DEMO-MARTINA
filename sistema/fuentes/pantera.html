@@ -117,10 +117,11 @@ body.enModulo{overflow:hidden}
 #viewModulo>*{flex:none}
 #viewModulo>#moduloBody:not(.hidden){flex:1;min-height:0;display:flex;flex-direction:column}
 #moduloBody>section:not(.hidden){flex:1;min-height:0}
-/* Mapa: cabe en la pantalla; si la pantalla es muy baja, la pestaña baja y queda el botón de pantalla completa */
-#tab-mapa:not(.hidden){display:flex;flex-direction:column;gap:8px;overflow-y:auto}
-#tab-mapa .mapa-bar{flex:none;display:flex;align-items:center;justify-content:flex-end;gap:12px;font-size:12px;color:var(--muted)}
-#tab-mapa #mapaWrap{flex:1;min-height:520px}
+/* Mapa: la página baja como una página normal; el mapa ocupa una pantalla entera debajo del encabezado */
+body.enModulo.mapaPagina{overflow-y:auto;overflow-x:hidden}
+body.mapaPagina #viewModulo:not(.hidden){position:static;padding:16px 24px 8px}
+#tab-mapa .mapa-bar{display:flex;align-items:center;justify-content:flex-end;gap:12px;font-size:12px;color:var(--muted);margin-bottom:8px}
+#tab-mapa #mapaWrap{height:calc(100vh - 16px);min-height:480px}
 #mapaFrame:fullscreen{border:0;border-radius:0}
 .lector>.panel{display:flex;flex-direction:column;min-height:0}
 .lector>.panel>*{flex:none}
@@ -460,6 +461,7 @@ function setTab(t){
   TAB=t; lsSet("martina_tab",t);
   document.querySelectorAll(".mtab").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
   TABS.forEach(x=>$("tab-"+x).classList.toggle("hidden",x!==t));
+  document.body.classList.toggle("mapaPagina",t==="mapa"); if(t!=="mapa") window.scrollTo(0,0);
   if(t==="pantera"){ try{ pFrame.contentWindow.dispatchEvent(new Event("resize")); }catch(e){} }
   if(t==="mapa") cargarMapa();
 }
@@ -467,6 +469,15 @@ function setTab(t){
    Si en la carpeta de OneDrive hay un archivo *map*.html más reciente, ese tiene prioridad. ---------- */
 const MAPA_GITHUB="Pantera-Portfolio-Map.html";
 let MAPAS=[], MAPA_URL=null, MAPA_KEY="";
+/* Rueda del ratón sobre el mapa: primero baja la página hasta que el mapa llena la pantalla;
+   recién entonces la rueda hace zoom en el mapa o desplaza la lista (si no, el mapa se "comía" el scroll). */
+function engancharRueda(){ const fr=$("mapaFrame"); let d; try{ d=fr.contentDocument; }catch(e){ return; }
+  if(!d||d.__maRueda) return; d.__maRueda=true;
+  d.addEventListener("wheel",e=>{ if(TAB!=="mapa") return;
+    const top=fr.getBoundingClientRect().top-8, dy=e.deltaY*(e.deltaMode===1?40:e.deltaMode===2?window.innerHeight:1);
+    if(dy>0&&top>1){ e.preventDefault(); e.stopPropagation(); window.scrollBy(0,Math.min(dy,top)); }
+  },{capture:true,passive:false}); }
+$("mapaFrame").addEventListener("load",engancharRueda);
 /* pantalla completa: el mapa usa toda la pantalla (Esc para salir) */
 $("btnMapaFull").onclick=()=>{ const fr=$("mapaFrame"); if(fr.classList.contains("hidden")) return;
   (fr.requestFullscreen||fr.webkitRequestFullscreen).call(fr); };
