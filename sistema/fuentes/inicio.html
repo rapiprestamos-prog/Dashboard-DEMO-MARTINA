@@ -357,6 +357,10 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
         <div class="mod-ban ban-legal"><span class="mod-ico"><svg viewBox="0 0 24 24"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 7a3.5 3.5 0 0 0 6 0L5 7zM19 7l-3 7a3.5 3.5 0 0 0 6 0l-3-7z"/></svg></span></div>
         <div class="mod-body"><div class="mod-k">Legal</div><h3>Dashboard de Legal</h3><p>Lector de la carpeta Legal de OneDrive por año y mes.</p><div class="mod-foot"><span class="mod-tag">OneDrive · Excel</span><span class="mod-go">Entrar →</span></div></div>
       </div>
+      <a class="mod-card" id="cardRedaccion" href="demo-redaccion.html" data-tags="redaccion redacción revision revisión plantillas documentos ortografia ortografía faltantes propuesta demo legal">
+        <div class="mod-ban ban-legal"><span class="mod-ico"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/><path d="M8.5 15.5l2 2 4.5-4.5"/></svg></span></div>
+        <div class="mod-body"><div class="mod-k">Legal · Demostración</div><h3>Redacción y revisión de documentos</h3><p>Plantillas, redacción con datos del caso, detección de lo que falta, ortografía y propuesta de implementación.</p><div class="mod-foot"><span class="mod-tag">Demo · datos de ejemplo</span><span class="mod-go">Entrar →</span></div></div>
+      </a>
     </div>
   </section>
   <section class="cat" data-cat="gestion">
@@ -395,6 +399,7 @@ MA.opcional().then(c=>{
   $("btnUsuariosHome").classList.toggle("hidden",c.rol!=="admin");
   $("btnSalirHome").classList.remove("hidden"); $("btnSalirHome").onclick=()=>MA.salir("Sesión cerrada.");
   let n=0; for(const [card,id] of Object.entries(TARJETAS)){ const ok=MA.puede(c,id); $(card).classList.toggle("hidden",!ok); if(ok) n++; }
+  { const ok=MA.puede(c,"agente_legal")||MA.puede(c,"legal"); $("cardRedaccion").classList.toggle("hidden",!ok); if(ok) n++; }
   contarModulos();
   if(!n){ const v=document.createElement("div"); v.className="empty"; v.innerHTML="<div class='big'>🔒</div><b>No tienes módulos asignados</b>Pídele a la administradora que te asigne uno."; $("secciones").appendChild(v); }
 });
