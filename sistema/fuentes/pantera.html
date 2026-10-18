@@ -455,11 +455,14 @@ const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 /* Página propia de Pantera: el inicio, Usuarios y las demás apps son otros HTML. */
 document.body.classList.add("enModulo");
 const TABS=["lector","pantera","mapa"];
+/* Dos entradas desde el inicio: "Pantera Reportería" (lector + reportería, sin mapa) y "Mapa del portafolio" (solo el mapa) */
+const MODO=location.hash==="#mapa"?"mapa":"reporte";
+(MODO==="mapa"?["lector","pantera"]:["mapa"]).forEach(t=>{ const b=document.querySelector(`.mtab[data-tab="${t}"]`); if(b) b.classList.add("hidden"); });
 function setTab(t){
   // una pestaña que el rol no tiene (o desconocida) vuelve al lector
   const btn=document.querySelector(`.mtab[data-tab="${t}"]`);
   if(!TABS.includes(t)||!btn||btn.classList.contains("hidden")) t="lector";
-  TAB=t; lsSet("martina_tab",t);
+  TAB=t; if(MODO!=="mapa") lsSet("martina_tab",t);
   document.querySelectorAll(".mtab").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
   TABS.forEach(x=>$("tab-"+x).classList.toggle("hidden",x!==t));
   document.body.classList.toggle("mapaPagina",t==="mapa"); if(t!=="mapa") window.scrollTo(0,0);
@@ -1057,6 +1060,15 @@ async function informePDF(){
 }
 $("btnInformePDF").onclick=informePDF;
 
+/* ============================ Entrada «Mapa del portafolio» ============================ */
+function modoMapa(){
+  document.title="Mapa del portafolio — Pantera";
+  const h1=document.querySelector("#viewModulo .mhdr h1"); if(h1) h1.innerHTML='Mapa del <span class="mart">portafolio</span>';
+  $("hdrSub").textContent="Propiedades del fondo con fichas, inquilinos y dashboard del portafolio";
+  ["btnActualizar","btnCambiar","btnInformePDF","btnInstalarHdr"].forEach(id=>$(id).classList.add("hidden"));
+  $("connectBox").classList.add("hidden"); $("mtabs").classList.add("hidden"); $("moduloBody").classList.remove("hidden");
+  TAB=""; setTab("mapa");
+}
 /* ============================ Sesión ============================
    El acceso lo maneja el bloque M&A (mismo usuario y clave en todas las páginas).
    Supabase solo dice quién entra; los archivos se leen de la carpeta de OneDrive. */
@@ -1067,8 +1079,9 @@ $("btnSalir").onclick=()=>MA.salir();
 MA.listo.then(async c=>{
   SB_USER=c.user; SB_ROL=c.rol; SB_MODS=c.modulos;
   $("rolChip").textContent=MA.ROL_TXT[c.rol]||c.rol; $("rolChip").classList.remove("hidden"); $("btnSalir").classList.remove("hidden");
+  if(MODO==="mapa"){ modoMapa(); return; }   // el mapa no necesita la carpeta ni la reportería
   borrarDatosPantera(); reiniciarPantera(true);
-  setTab(location.hash==="#mapa"?"mapa":(lsGet("martina_tab")||"lector"));
+  setTab(lsGet("martina_tab")||"lector");
   $("hdrSub").textContent="Conectando con la carpeta…";
   // acceso directo o Microsoft 365: lee solo, sin que Chrome pregunte
   const f=await MA.fuente("PruebaDashboard");
