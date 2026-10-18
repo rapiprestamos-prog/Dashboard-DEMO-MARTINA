@@ -2131,7 +2131,7 @@ async function iniciar(){
 async function alCambiarCarpeta(){ TXT.clear(); if(await conectar()) ir(VISTA); else pantallaConectar(); }
 function listo(){ ir(VISTA); }
 function ir(v){ VISTA=v; $("bar").querySelectorAll(".navb").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
-  ({inicio:vInicio,dd:vDD,red:vRed,cierre:vCierre,mas:vMas})[v](); ROOT.querySelector(".main").scrollTop=0; }
+  ({inicio:vInicio,dd:vDD,red:vRed,cierre:vCierre,ven:vVen,mas:vMas})[v](); ROOT.querySelector(".main").scrollTop=0; }
 
 /* ============================ Inicio ============================ */
 function vInicio(){
@@ -2144,15 +2144,17 @@ function vInicio(){
     </div>
     <div class="k" style="margin-bottom:8px">Más herramientas</div>
     <div class="herr" style="margin-bottom:20px">${[["chat","💬 Agente (chat)"],["comparar","⇄ Comparar documentos"],["consultar","❓ Consultar documento"],["semaforo","🚦 Semáforo de riesgo"]].map(([k,l])=>`<button class="btn" data-h="${k}">${l}</button>`).join("")}</div>
+    <div id="iniVen"></div>
     <div class="k" style="margin-bottom:8px">Casos en la carpeta Legal · modificados recientemente</div>
     <div class="nota" style="margin-bottom:8px">Cada subcarpeta de Legal aparece como un caso en las listas desplegables.</div>
-    <div class="card">${CASOS.length?`<table class="t"><thead><tr><th>Caso (subcarpeta)</th><th>Sociedad</th><th>Tipo de proceso</th><th>Documentos</th><th>Última modificación</th><th></th></tr></thead><tbody>${
-      CASOS.map(c=>{ const m=META[c.nombre]||{}; return `<tr><td><b>${esc(c.nombre)}</b></td><td>${esc(m.sociedad||"—")}</td><td>${esc(m.tipo_proceso||"—")}</td><td>${c.archivos.length}</td><td>${fFecha(c.mod)}</td><td><button class="btn sm" data-ed="${esc(c.nombre)}">✎ Datos</button></td></tr>`; }).join("")}</tbody></table>`
+    <div class="card">${CASOS.length?`<table class="t"><thead><tr><th>Caso (subcarpeta)</th><th>Sociedad</th><th>Tipo de proceso</th><th>Expediente</th><th>Documentos</th><th>Última modificación</th><th></th></tr></thead><tbody>${
+      CASOS.map(c=>{ const m=META[c.nombre]||{}; return `<tr><td><b>${esc(c.nombre)}</b></td><td>${esc(m.sociedad||"—")}</td><td>${esc(m.tipo_proceso||"—")}</td><td data-exp="${esc(c.nombre)}"><span class="spin" style="width:12px;height:12px"></span></td><td>${c.archivos.length}</td><td>${fFecha(c.mod)}</td><td><button class="btn sm" data-ed="${esc(c.nombre)}">✎ Datos</button></td></tr>`; }).join("")}</tbody></table>`
       :`<div class="vacio"><b>No hay casos en la carpeta</b>Crea una subcarpeta por caso dentro de <b>${esc(RAIZ?RAIZ.name:"Legal")}</b> y pon ahí sus documentos.</div>`}</div>
     ${PLANTILLAS.length?`<div class="nota" style="margin-top:10px">${PLANTILLAS.length} plantilla(s) de Word en <b>Plantillas</b>.</div>`:`<div class="nota" style="margin-top:10px">No hay subcarpeta <b>Plantillas</b> con modelos de Word todavía.</div>`}`;
   $("main").querySelectorAll("[data-go]").forEach(c=>c.onclick=()=>ir(c.dataset.go));
   $("main").querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{ const h=b.dataset.h; if(h==="chat") SH.go("chat"); else { SH.go("ag"); SH.apps.ag.show(h==="semaforo"?"reglas":h); } });
   $("main").querySelectorAll("[data-ed]").forEach(b=>b.onclick=()=>dlgCaso(b.dataset.ed));
+  inicioAuto().catch(()=>{});
 }
 function dlgCaso(nombre){
   const m=META[nombre]||{};
@@ -2355,50 +2357,180 @@ async function llenarDocx(buf){
   return zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
 }
 
+/* ============================ Revisión por lógica (sin IA) ============================
+   Cada documento se lee una sola vez y se guarda una "ficha" en este navegador (se vuelve a leer solo si el archivo cambia).
+   Con la ficha y reglas fijas se decide qué falta en el expediente y qué fechas de vencimiento están escritas.
+   No se inventa nada: solo se usa lo que dicen el nombre del archivo y su texto. */
+const n1=s=>String(s||"").toLowerCase().replace(/[áàäâ]/g,"a").replace(/[éèëê]/g,"e").replace(/[íìïî]/g,"i").replace(/[óòöô]/g,"o").replace(/[úùüû]/g,"u").replace(/ñ/g,"n");
+const palabras=s=>n1(s).replace(/[^a-z0-9]+/g," ").trim().split(" ").filter(Boolean);
+const MESES={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12,
+  january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
+const RX_VENCE=/(fecha de vencimiento|vencimiento|venceran|vencera|vence|valid[oa]s? hasta|vigentes? hasta|vigencia hasta|tendra vigencia|vigencia|expira|expiracion|caduca|caducidad|fecha de terminacion|terminara|valid until|expires|expiration|expiry)/g;
+const RX_FECHAS=[
+  /\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})\b/g,
+  /\b(\d{4})-(\d{2})-(\d{2})\b/g,
+  /\b(?:(\d{1,2})|[a-z]+(?:[ -][a-z]+){0,3}\s*\((\d{1,2})\))\s+(?:dias?\s+)?(?:de|del)\s+(?:mes\s+de\s+)?([a-z]+)\s+(?:de|del)\s+(?:ano\s+)?(?:(\d{4})|[a-z ]{3,60}?\s*\((\d{4})\))/g,
+  /\b([a-z]+)\s+(\d{1,2}),?\s+(\d{4})\b/g
+];
+function isoFecha(y,m,d){ y=+y; m=+m; d=+d; if(!(y>=2000&&y<=2100&&m>=1&&m<=12&&d>=1&&d<=31)) return null;
+  const f=new Date(Date.UTC(y,m-1,d)); if(f.getUTCMonth()!==m-1) return null; return f.toISOString().slice(0,10); }
+// primera fecha escrita dentro de un texto normalizado (n1)
+function primeraFecha(s){
+  let mejor=null;
+  RX_FECHAS.forEach((rx,k)=>{ rx.lastIndex=0; let m;
+    while((m=rx.exec(s))){ let iso=null;
+      if(k===0) iso=isoFecha(m[3],m[2],m[1]);
+      else if(k===1) iso=isoFecha(m[1],m[2],m[3]);
+      else if(k===2){ const mes=MESES[m[3]]; if(mes) iso=isoFecha(m[4]||m[5],mes,m[1]||m[2]); }
+      else { const mes=MESES[m[1]]; if(mes) iso=isoFecha(m[3],mes,m[2]); }
+      if(iso){ if(!mejor||m.index<mejor.i) mejor={iso,i:m.index,len:m[0].length}; break; }
+    } });
+  return mejor;
+}
+// fechas de vencimiento o vigencia: una fecha escrita poco después de "vence", "vigencia", "válido hasta", "expira"…
+function fechasVence(txt){
+  const t=String(txt||""), s=n1(t), out=[], vistas=new Set(); let m; RX_VENCE.lastIndex=0;
+  while((m=RX_VENCE.exec(s))&&out.length<12){
+    const f=primeraFecha(s.slice(m.index,m.index+220)); if(!f||vistas.has(f.iso)) continue; vistas.add(f.iso);
+    const a=Math.max(0,m.index-70), b=Math.min(t.length,m.index+f.i+f.len+25);
+    out.push({f:f.iso,t:(a>0?"…":"")+t.slice(a,b).replace(/\s+/g," ").trim()+(b<t.length?"…":"")});
+  }
+  return out;
+}
+function tipoDoc(nombre,inicio){ const s=palabras(nombre).join(" ")+" | "+String(inicio||"").slice(0,700);
+  return /paz y salvo/.test(s)?"Paz y salvo":/\bpoder(es)?\b/.test(s)?"Poder":/contrato|arrendamiento|promesa|compraventa|acuerdo|convenio|addendum|adenda/.test(s)?"Contrato":
+    /certificad/.test(s)?"Certificado":/cedula|pasaporte|\bruc\b/.test(s)?"Identificación":/licencia|permiso|aviso de operacion/.test(s)?"Licencia o permiso":"Documento"; }
+function armarFicha(a,t){
+  const txt=t||"", ini=n1(txt.slice(0,4000));
+  return {leido:!!t, inicio:ini, tipo:tipoDoc(a.ruta,ini),
+    blancos:(txt.match(/[^\s_][ \t]*_{4,}|\[[^\[\]\n]{1,60}\]/g)||[]).length,
+    fechas:fechasVence(txt)};
+}
+const FIDB="agente_legal_fichas"; let FDB=null; const FICHAS=new Map();
+function fdb(){ if(!FDB) FDB=new Promise(res=>{ try{ const r=indexedDB.open(FIDB,1); r.onupgradeneeded=()=>r.result.createObjectStore("f"); r.onsuccess=()=>res(r.result); r.onerror=()=>res(null); }catch(e){ res(null); } }); return FDB; }
+async function fichaGuardada(k){ const db=await fdb(); if(!db) return null; return new Promise(r=>{ try{ const g=db.transaction("f").objectStore("f").get(k); g.onsuccess=()=>r(g.result||null); g.onerror=()=>r(null); }catch(e){ r(null); } }); }
+async function fichaGuardar(k,v){ const db=await fdb(); if(!db) return; try{ db.transaction("f","readwrite").objectStore("f").put(v,k); }catch(e){} }
+async function fichaDe(caso,a){
+  const k="v2|"+caso+"/"+a.ruta+"|"+(a.mod||0)+"|"+(a.size||0);
+  if(FICHAS.has(k)) return FICHAS.get(k);
+  let f=await fichaGuardada(k);
+  if(!f){ f=armarFicha(a,await textoDe(a)); fichaGuardar(k,f); }
+  FICHAS.set(k,f); return f;
+}
+// Índice de toda la carpeta Legal (se arma una vez y se reutiliza mientras la carpeta no cambie)
+let IDX={prom:null,firma:"",hecho:0,total:0,ven:[],noLeidos:0,cb:null};
+const firmaCarpeta=()=>CASOS.map(c=>c.nombre+":"+c.archivos.map(a=>a.ruta+"|"+a.mod).join(",")).join(";");
+function indexar(progreso){
+  const fz=firmaCarpeta();
+  if(IDX.prom&&IDX.firma===fz){ IDX.cb=progreso||null; return IDX.prom; }
+  IDX={prom:null,firma:fz,hecho:0,total:CASOS.reduce((s,c)=>s+c.archivos.length,0),ven:[],noLeidos:0,cb:progreso||null};
+  const yo=IDX;
+  yo.prom=(async()=>{
+    const cola=[]; CASOS.forEach(c=>c.archivos.forEach(a=>cola.push([c,a]))); let i=0; const ven=[];
+    const trabajar=async()=>{ while(i<cola.length){ const [c,a]=cola[i++]; let f=null; try{ f=await fichaDe(c.nombre,a); }catch(e){}
+      yo.hecho++; if(yo.cb) try{ yo.cb(yo.hecho,yo.total); }catch(e){}
+      if(f&&!f.leido&&/\.(pdf|docx)$/i.test(a.nombre)) yo.noLeidos++;
+      if(f) (f.fechas||[]).forEach(x=>ven.push({caso:c.nombre,a,tipo:f.tipo,fecha:x.f,texto:x.t})); } };
+    await Promise.all([trabajar(),trabajar(),trabajar()]);
+    yo.ven=ven.sort((x,y)=>x.fecha.localeCompare(y.fecha)); return yo;
+  })();
+  return yo.prom;
+}
+const hoyISO=()=>{ const h=new Date(); return new Date(Date.UTC(h.getFullYear(),h.getMonth(),h.getDate())).toISOString().slice(0,10); };
+const diasA=iso=>Math.round((Date.parse(iso)-Date.parse(hoyISO()))/864e5);
+const fISO=iso=>new Date(iso+"T12:00:00").toLocaleDateString("es-PA",{day:"numeric",month:"short",year:"numeric"});
+function nivelVen(d){ return d<0?["bad","Vencido"]:d<=30?["bad",d===0?"Vence hoy":"Vence en "+d+" día"+(d===1?"":"s")]:d<=90?["rev","Vence en "+d+" días"]:["ok","Vigente"]; }
+
+// ---- expediente: checklist del proceso contra los archivos del caso ----
+const STOP=new Set("de del la las el los y o u e en para por con a al un una unos unas su sus que se the of and copia copias documento documentos original originales caso no nro num".split(" "));
+const RX_ESTADO=/^(firmad|final|vigent|actualizad|definitiv|escanead|complet|reciente)/;
+function clavesDe(it){ const base=it.claves&&String(it.claves).trim()?String(it.claves).replace(/[,;]+/g," "):it.documento;
+  return [...new Set(palabras(base).filter(w=>w.length>=2&&!STOP.has(w)&&!RX_ESTADO.test(w)))]; }
+const raiz=w=>w.length>5?w.slice(0,w.length-2):w;
+const fraccion=(ks,ws)=>ks.length?ks.filter(k=>ws.some(w=>w===k||(k.length>=4&&w.startsWith(raiz(k))))).length/ks.length:0;
+async function revisarExpediente(c,chk){
+  const fichas=new Map(); for(const a of c.archivos){ try{ fichas.set(a,await fichaDe(c.nombre,a)); }catch(e){ fichas.set(a,null); } }
+  const usados=new Set(), hoy=hoyISO(), items=[], que=[], alertas=[];
+  for(const it of (chk.items||[])){
+    const ks=clavesDe(it); let mejor=null;
+    for(const a of c.archivos){ const f=fichas.get(a)||{}; const wn=palabras(a.ruta.replace(/\.[^.\/]+$/,"")), wt=palabras(f.inicio||"");
+      const fn=fraccion(ks,wn), ft=fraccion(ks,wt); let p=0, como="";
+      if(fn>=0.6){ p=2+fn; como="nombre"; }
+      else if(ks.length>=2&&ft>=0.75){ p=1+ft; como="contenido"; }
+      else if(ks.length>=2&&fn>=0.5&&wn.some(w=>w===ks[0]||(ks[0].length>=4&&w.startsWith(raiz(ks[0]))))){ p=0.5+fn; como="parecido"; }
+      if(p&&(!mejor||p>mejor.p||(p===mejor.p&&(a.mod||0)>(mejor.a.mod||0)))) mejor={a,f,p,como};
+    }
+    if(!mejor){ items.push({documento:it.documento,archivo:"",estado:"Falta",motivo:"No hay ningún archivo con ese nombre ni con ese contenido en la carpeta del caso."}); que.push(`Conseguir «${it.documento}»`); continue; }
+    usados.add(mejor.a); const a=mejor.a, f=mejor.f||{}, nm=n1(a.ruta), mot=[];
+    if(mejor.como==="parecido") mot.push("solo se parece por el nombre: confirmar que es el documento correcto");
+    if(/borrador|draft|minuta|preliminar|sin firma|para firma|para revision|pendiente/.test(nm)||/\b(borrador|draft|minuta)\b/.test(String(f.inicio||"").slice(0,300))) mot.push("es un borrador");
+    if(f.blancos) mot.push(`tiene ${f.blancos} espacio(s) sin llenar`);
+    const fechas=(f.fechas||[]).map(x=>x.f).sort(), ult=fechas[fechas.length-1];
+    if(ult&&ult<hoy) mot.push("venció el "+fISO(ult));
+    else if(ult&&diasA(ult)<=90) alertas.push(`«${a.ruta}» vence el ${fISO(ult)} (en ${diasA(ult)} días).`);
+    if(palabras(it.documento+" "+(it.detalle||"")).some(w=>/^firmad/.test(w))&&/\.docx?$/i.test(a.nombre)&&!/firmad|signed/.test(nm)) mot.push("es un Word editable; se espera la versión firmada");
+    if(mot.length){ const txt=mot.join("; "); items.push({documento:it.documento,archivo:a.ruta,estado:"Por revisar",motivo:txt.charAt(0).toUpperCase()+txt.slice(1)+"."}); que.push(`Revisar «${it.documento}»: ${mot.join("; ")}`); }
+    else items.push({documento:it.documento,archivo:a.ruta,estado:"Completo",motivo:(mejor.como==="nombre"?"Encontrado por el nombre del archivo":"Encontrado por su contenido")+(f.leido===false&&/\.pdf$/i.test(a.nombre)?" (el PDF no tiene texto legible; revisar a ojo)":"")+"."});
+  }
+  const otros=c.archivos.filter(a=>!usados.has(a)).map(a=>a.ruta);
+  return {checklist:chk.tipo_proceso,items,que_falta:que,alertas,otros,logica:true};
+}
+
 /* ============================ Cierre de procesos ============================ */
 let CHECKS=[];
 async function vCierre(){
   try{ CHECKS=await q(SB.from("lg_checklists").select("*").order("tipo_proceso")); }catch(e){ CHECKS=[]; }
   const caso0=CASO_SEL||(CASOS[0]||{}).nombre; const tipo0=(META[caso0]||{}).tipo_proceso;
-  $("main").innerHTML=`<div class="k">Agente legal</div><h1 class="t">Cierre de procesos</h1><div class="sub">Compara la carpeta del caso con el checklist del proceso.</div>
+  $("main").innerHTML=`<div class="k">Agente legal</div><h1 class="t">Cierre de procesos</h1><div class="sub">Compara la carpeta del caso con el checklist del proceso: <b>Completo</b>, <b>Por revisar</b> o <b>Falta</b>. Se revisa solo, sin IA, al elegir el caso.</div>
     <div class="card pad" style="margin-bottom:14px"><div class="row">
       <label class="f"><span>Caso</span><select class="inp" id="ciCaso">${opcCasos(caso0)}</select></label>
       <label class="f"><span>Checklist del proceso</span><select class="inp" id="ciChk"><option value="">— Elegir —</option>${CHECKS.map(c=>`<option${c.tipo_proceso===tipo0?" selected":""}>${esc(c.tipo_proceso)}</option>`).join("")}</select></label>
-      <button class="btn" id="ciEd" style="margin-bottom:10px">✎ Editar checklist</button><button class="btn pri" id="ciRun" style="margin-bottom:10px">Correr</button></div>
+      <button class="btn" id="ciEd" style="margin-bottom:10px">✎ Editar checklist</button><button class="btn pri" id="ciRun" style="margin-bottom:10px">↻ Revisar carpeta</button><button class="btn" id="ciIA" style="margin-bottom:10px" title="Revisión más profunda con IA (lee el contenido completo)">✨ Revisar con IA</button></div>
       ${CHECKS.length?"":`<div class="aviso">Todavía no hay checklists. Crea el primero con <b>Editar checklist</b>: el nombre del proceso y la lista de documentos requeridos.</div>`}</div>
-    <div id="ciRes"></div>`;
+    <div id="ciRes"></div><div id="ciIARes"></div>`;
+  const chkSel=()=>CHECKS.find(x=>x.tipo_proceso===$("ciChk").value);
+  const logica=async()=>{ const c=casoPor($("ciCaso").value), chk=chkSel(), el=$("ciRes"); if(!el) return;
+    if(!c||!chk){ el.innerHTML=c&&CHECKS.length?`<div class="card pad nota">Elige el checklist del proceso para revisar la carpeta.</div>`:""; return; }
+    if(!(chk.items||[]).length){ el.innerHTML=`<div class="aviso">El checklist «${esc(chk.tipo_proceso)}» no tiene documentos. Agrégalos con <b>Editar checklist</b>.</div>`; return; }
+    trabajando(el,"Revisando la carpeta del caso…");
+    try{ const r=await revisarExpediente(c,chk); if($("ciCaso")&&$("ciCaso").value===c.nombre) pintarCierre(r,"Revisado ahora · por reglas, sin IA",el); }
+    catch(e){ el.innerHTML=`<div class="aviso bad">${esc(e.message)}</div>`; } };
   const al=async()=>{ const c=selCaso("ciCaso"); if(!c) return; const t=(META[c.nombre]||{}).tipo_proceso; if(t&&CHECKS.some(x=>x.tipo_proceso===t)) $("ciChk").value=t;
-    const u=await ultimoResultado(c.nombre,"cierre"); if(u) pintarCierre(u.resultado,`Revisado ${fHora(u.creado)} · ${u.usuario}`); else $("ciRes").innerHTML=""; };
-  $("ciCaso").onchange=al; if(CASOS.length) al();
-  $("ciEd").onclick=()=>dlgChecklist(CHECKS.find(c=>c.tipo_proceso===$("ciChk").value));
-  $("ciRun").onclick=async()=>{
-    const c=selCaso("ciCaso"), chk=CHECKS.find(x=>x.tipo_proceso===$("ciChk").value);
+    logica();
+    const u=await ultimoResultado(c.nombre,"cierre"); const el=$("ciIARes"); if(!el) return;
+    if(u) pintarCierre(u.resultado,`Última revisión con IA · ${fHora(u.creado)} · ${u.usuario}`,el); else el.innerHTML=""; };
+  $("ciCaso").onchange=al; $("ciChk").onchange=logica; if(CASOS.length) al();
+  $("ciEd").onclick=()=>dlgChecklist(chkSel());
+  $("ciRun").onclick=logica;
+  $("ciIA").onclick=async()=>{
+    const c=selCaso("ciCaso"), chk=chkSel();
     if(!c||!chk){ toast("Elige el caso y el checklist",true); return; }
     if(!(chk.items||[]).length){ toast("El checklist no tiene documentos",true); return; }
-    $("ciRun").disabled=true; const el=$("ciRes");
+    $("ciIA").disabled=true; const el=$("ciIARes");
     try{ const {docs,omitidos}=await docsDe(c.archivos,t=>trabajando(el,t)); trabajando(el,"Comparando con el checklist…");
       const r=await ia("cierre",{caso:c.nombre,checklist:chk.tipo_proceso,items:chk.items,archivos:c.archivos.map(a=>({nombre:a.ruta,modificado:new Date(a.mod).toISOString().slice(0,10)})),documentos:docs});
-      r.omitidos=omitidos; r.checklist=chk.tipo_proceso; await guardarResultado(c.nombre,"cierre",r); pintarCierre(r,"Revisado ahora");
+      r.omitidos=omitidos; r.checklist=chk.tipo_proceso; await guardarResultado(c.nombre,"cierre",r); pintarCierre(r,"Revisión con IA · ahora",el);
     }catch(e){ el.innerHTML=`<div class="aviso bad">${esc(e.message)}</div>`; }
-    $("ciRun").disabled=false;
+    $("ciIA").disabled=false;
   };
 }
-const EST_CI=e=>{ e=String(e||"").toLowerCase(); return e.startsWith("final")?["ok","Final"]:e.startsWith("falt")?["bad","Falta"]:["rev","Por modificar"]; };
-function pintarCierre(r,pie){
-  const it=r.items||[]; const n=k=>it.filter(x=>EST_CI(x.estado)[0]===k).length; const tot=it.length||1;
-  $("ciRes").innerHTML=`<div class="card pad" style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>Checklist · ${n("ok")} de ${it.length} listos</b><span class="nota">${esc(r.checklist||"")} · ${esc(pie||"")}</span></div>
+const EST_CI=e=>{ e=String(e||"").toLowerCase(); return e.startsWith("final")||e.startsWith("complet")?["ok","Completo"]:e.startsWith("falt")?["bad","Falta"]:["rev","Por revisar"]; };
+function pintarCierre(r,pie,el){
+  el=el||$("ciRes"); const it=r.items||[]; const n=k=>it.filter(x=>EST_CI(x.estado)[0]===k).length; const tot=it.length||1;
+  el.innerHTML=`<div class="card pad" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>Checklist · ${n("ok")} de ${it.length} completos</b><span class="nota">${esc(r.checklist||"")} · ${esc(pie||"")}</span></div>
       <div class="barra" style="margin:10px 0 6px"><i style="width:${n("ok")*100/tot}%;background:#22a35a"></i><i style="width:${n("rev")*100/tot}%;background:#e0a400"></i><i style="width:${n("bad")*100/tot}%;background:#d0453b"></i></div>
-      <div class="nota">${n("ok")} finales · ${n("rev")} por modificar · ${n("bad")} faltan</div></div>
+      <div class="nota">${n("ok")} completo${n("ok")===1?"":"s"} · ${n("rev")} por revisar · ${n("bad")} ${n("bad")===1?"falta":"faltan"}</div></div>
     <div class="card" style="margin-bottom:12px"><table class="t"><thead><tr><th>Documento requerido</th><th>Archivo encontrado</th><th>Estado</th><th>Motivo</th></tr></thead><tbody>${
-      it.map(x=>{ const [k,l]=EST_CI(x.estado); return `<tr><td><b>${esc(x.documento)}</b></td><td class="mono">${esc(x.archivo||"—")}</td><td><span class="tag ${k}">${l}</span></td><td class="nota">${esc(x.motivo||"")}</td></tr>`; }).join("")}</tbody></table></div>
-    <div class="card pad"><b>Qué falta para cerrar</b>
+      it.map(x=>{ const [k,l]=EST_CI(x.estado); return `<tr><td><b>${esc(x.documento)}</b></td><td class="mono">${esc(x.archivo||"—")}</td><td><span class="tag ${k}">${l}</span></td><td class="nota">${esc(x.motivo||"")}</td></tr>`; }).join("")}</tbody></table>
+      ${(r.otros||[]).length?`<div class="pad nota">Otros archivos de la carpeta que no están en el checklist: ${r.otros.map(esc).join(", ")}</div>`:""}</div>
+    <div class="card pad" style="margin-bottom:12px"><b>Qué falta para cerrar</b>
       ${(r.que_falta||[]).length?`<ol>${r.que_falta.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:`<div class="nota" style="margin:6px 0">Nada pendiente según el checklist.</div>`}
       ${(r.alertas||[]).map(a=>`<div class="aviso">${esc(a)}</div>`).join("")}
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="ciMail">✉ Preparar correo de seguimiento</button><button class="btn" id="ciXls">⬇ Descargar checklist (Excel)</button></div></div>`;
-  $("ciXls").onclick=()=>{ const ws=XLSX.utils.aoa_to_sheet([["Caso",CASO_SEL],["Checklist",r.checklist||""],[],["Documento requerido","Archivo encontrado","Estado","Motivo"],...it.map(x=>[x.documento,x.archivo||"",EST_CI(x.estado)[1],x.motivo||""]),[],["Qué falta para cerrar"],...(r.que_falta||[]).map(x=>[x])]);
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" data-a="mail">✉ Preparar correo de seguimiento</button><button class="btn" data-a="xls">⬇ Descargar checklist (Excel)</button></div></div>`;
+  el.querySelector('[data-a="xls"]').onclick=()=>{ const ws=XLSX.utils.aoa_to_sheet([["Caso",CASO_SEL],["Checklist",r.checklist||""],["Revisión",pie||""],[],["Documento requerido","Archivo encontrado","Estado","Motivo"],...it.map(x=>[x.documento,x.archivo||"",EST_CI(x.estado)[1],x.motivo||""]),[],["Qué falta para cerrar"],...(r.que_falta||[]).map(x=>[x])]);
     ws["!cols"]=[{wch:36},{wch:36},{wch:16},{wch:60}]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Checklist"); XLSX.writeFile(wb,`Checklist cierre - ${limpiaNombre(CASO_SEL)}.xlsx`); };
-  $("ciMail").onclick=async()=>{ const bg=abrirDlg(`<div class="dlg-h"><h3>Correo de seguimiento</h3><button class="x" data-x>Cerrar</button></div><div class="dlg-b" id="mailB"><span class="spin"></span> Redactando…</div><div class="dlg-f"><button class="btn" data-x>Cerrar</button><button class="btn pri" id="mailCopy" disabled>Copiar</button></div>`);
+  el.querySelector('[data-a="mail"]').onclick=async()=>{ const bg=abrirDlg(`<div class="dlg-h"><h3>Correo de seguimiento</h3><button class="x" data-x>Cerrar</button></div><div class="dlg-b" id="mailB"><span class="spin"></span> Redactando…</div><div class="dlg-f"><button class="btn" data-x>Cerrar</button><button class="btn pri" id="mailCopy" disabled>Copiar</button></div>`);
     try{ const m=await ia("correo_seguimiento",{caso:CASO_SEL,checklist:r.checklist,items:it,que_falta:r.que_falta||[],alertas:r.alertas||[]});
       $("mailB").innerHTML=`<label class="f"><span>Asunto</span><input class="inp" id="mA" value="${esc(m.asunto||"")}"></label><label class="f"><span>Mensaje</span><textarea class="inp" id="mC" style="min-height:260px">${esc(m.cuerpo||"")}</textarea></label>`;
       $("mailCopy").disabled=false; $("mailCopy").onclick=async()=>{ try{ await navigator.clipboard.writeText("Asunto: "+$("mA").value+"\n\n"+$("mC").value); toast("Copiado"); }catch(e){ $("mC").select(); } };
@@ -2409,19 +2541,75 @@ function dlgChecklist(chk){
   const bg=abrirDlg(`<div class="dlg-h"><h3>${chk?"Editar checklist":"Nuevo checklist"}</h3><button class="x" data-x>Cerrar</button></div>
     <div class="dlg-b"><label class="f"><span>Tipo de proceso</span><input class="inp" id="chT" value="${esc(chk?chk.tipo_proceso:"")}" ${chk?"disabled":""} placeholder="Nombre del proceso"></label>
       <div class="f"><span>Documentos requeridos</span><div class="lista-items" id="chI"></div><button class="btn sm" id="chAdd">＋ Agregar documento</button></div>
+      <div class="nota">«Palabras para encontrarlo» es opcional: si el archivo se llama distinto al documento (por ejemplo «RP» para el certificado del Registro Público), escribe aquí las palabras que lleva su nombre, separadas por coma.</div>
       <div class="err" id="chErr"></div></div>
     <div class="dlg-f">${chk?`<button class="btn" id="chNuevo">＋ Nuevo checklist</button><span style="flex:1"></span>`:""}<button class="btn" data-x>Cancelar</button><button class="btn pri" id="chOk">Guardar</button></div>`);
-  const pintar=()=>{ $("chI").innerHTML=items.map((x,i)=>`<div class="it"><input class="inp" data-d="${i}" placeholder="Documento" value="${esc(x.documento||"")}"><input class="inp" data-e="${i}" placeholder="Detalle (opcional)" value="${esc(x.detalle||"")}"><button class="btn sm" data-del="${i}">✕</button></div>`).join("")||`<div class="nota">Sin documentos.</div>`;
+  const pintar=()=>{ $("chI").innerHTML=items.map((x,i)=>`<div class="it"><input class="inp" data-d="${i}" placeholder="Documento" value="${esc(x.documento||"")}"><input class="inp" data-e="${i}" placeholder="Detalle (opcional)" value="${esc(x.detalle||"")}"><input class="inp" data-c="${i}" placeholder="Palabras para encontrarlo (opcional)" value="${esc(x.claves||"")}"><button class="btn sm" data-del="${i}">✕</button></div>`).join("")||`<div class="nota">Sin documentos.</div>`;
     $("chI").querySelectorAll("[data-d]").forEach(e=>e.oninput=()=>items[+e.dataset.d].documento=e.value);
     $("chI").querySelectorAll("[data-e]").forEach(e=>e.oninput=()=>items[+e.dataset.e].detalle=e.value);
+    $("chI").querySelectorAll("[data-c]").forEach(e=>e.oninput=()=>items[+e.dataset.c].claves=e.value);
     $("chI").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ items.splice(+b.dataset.del,1); pintar(); }); };
   pintar();
-  $("chAdd").onclick=()=>{ items.push({documento:"",detalle:""}); pintar(); $("chI").querySelector(`[data-d="${items.length-1}"]`).focus(); };
+  $("chAdd").onclick=()=>{ items.push({documento:"",detalle:"",claves:""}); pintar(); $("chI").querySelector(`[data-d="${items.length-1}"]`).focus(); };
   if($("chNuevo")) $("chNuevo").onclick=()=>dlgChecklist(null);
-  $("chOk").onclick=async()=>{ const tipo=$("chT").value.trim(); const lim=items.filter(x=>x.documento.trim()).map(x=>({documento:x.documento.trim(),detalle:(x.detalle||"").trim()}));
+  $("chOk").onclick=async()=>{ const tipo=$("chT").value.trim(); const lim=items.filter(x=>x.documento.trim()).map(x=>{ const o={documento:x.documento.trim(),detalle:(x.detalle||"").trim()}; if((x.claves||"").trim()) o.claves=x.claves.trim(); return o; });
     if(!tipo){ $("chErr").textContent="Ponle nombre al proceso."; return; }
     try{ await q(SB.from("lg_checklists").upsert({tipo_proceso:tipo,items:lim,actualizado:new Date().toISOString(),actualizado_por:YO},{onConflict:"tipo_proceso"})); cerrarDlg(); toast("Checklist guardado"); vCierre(); }
     catch(e){ $("chErr").textContent=e.message; } };
+}
+
+/* ============================ Vencimientos ============================ */
+let VEN_F="prox", VEN_Q="";
+async function vVen(){
+  $("main").innerHTML=`<div class="k">Agente legal</div><h1 class="t">Vencimientos</h1>
+    <div class="sub">Fechas de vencimiento o vigencia escritas en los documentos de los casos: poderes, contratos, paz y salvos, certificados, cédulas… Solo se toma lo que dice el documento; no se calcula ninguna fecha.</div>
+    <div id="venB"><div class="card pad"><span class="spin"></span> <span id="venP">Leyendo los documentos de la carpeta Legal…</span></div></div>`;
+  if(!CASOS.length){ $("venB").innerHTML=`<div class="card vacio"><b>No hay casos</b>Agrega subcarpetas a la carpeta Legal.</div>`; return; }
+  await indexar((h,t)=>{ const p=$("venP"); if(p) p.textContent=`Leyendo los documentos de la carpeta Legal… ${h} de ${t}`; });
+  if(VISTA==="ven") pintarVen();
+}
+function pintarVen(){
+  const todos=IDX.ven.map(x=>({...x,d:diasA(x.fecha)}));
+  const n=f=>todos.filter(f).length;
+  const filtro={prox:x=>x.d<=90&&x.d>=-365,venc:x=>x.d<0,todos:()=>true}[VEN_F];
+  const qq=n1(VEN_Q.trim()); const lista=todos.filter(filtro).filter(x=>!qq||n1(x.caso+" "+x.a.ruta+" "+x.tipo).includes(qq));
+  $("venB").innerHTML=`
+    <div class="grid4" style="margin-bottom:12px">
+      <div class="card kpi bad"><div class="k">Vencidos (último año)</div><div class="v">${n(x=>x.d<0&&x.d>=-365)}</div></div>
+      <div class="card kpi bad"><div class="k">Vencen en 30 días</div><div class="v">${n(x=>x.d>=0&&x.d<=30)}</div></div>
+      <div class="card kpi rev"><div class="k">Vencen en 31 a 90 días</div><div class="v">${n(x=>x.d>30&&x.d<=90)}</div></div>
+      <div class="card kpi ok"><div class="k">Vigentes (más de 90 días)</div><div class="v">${n(x=>x.d>90)}</div></div></div>
+    <div class="card pad" style="margin-bottom:12px"><div class="row">
+      <label class="f"><span>Mostrar</span><select class="inp" id="venF"><option value="prox">Vencidos en el último año y próximos 90 días</option><option value="venc">Solo vencidos</option><option value="todos">Todos</option></select></label>
+      <label class="f"><span>Buscar</span><input class="inp" id="venQ" placeholder="Caso, archivo o tipo (poder, contrato, paz y salvo…)" value="${esc(VEN_Q)}"></label>
+      <button class="btn" id="venXls" style="margin-bottom:10px">⬇ Excel</button><button class="btn" id="venRe" style="margin-bottom:10px">↻ Volver a leer</button></div>
+      <div class="nota">${IDX.total} documento(s) revisados en ${CASOS.length} caso(s).${IDX.noLeidos?` ${IDX.noLeidos} PDF o Word no tienen texto legible (por ejemplo, escaneados): sus fechas no se pueden leer.`:""}</div></div>
+    <div class="card">${lista.length?`<table class="t"><thead><tr><th>Estado</th><th>Fecha</th><th>Caso</th><th>Documento</th><th>Lo que dice el documento</th><th></th></tr></thead><tbody>${
+      lista.map((x,i)=>{ const [k,l]=nivelVen(x.d); return `<tr><td><span class="tag ${k}">${esc(l)}</span>${x.d<0?`<div class="nota">hace ${-x.d} día${x.d===-1?"":"s"}</div>`:""}</td><td style="white-space:nowrap"><b>${fISO(x.fecha)}</b></td><td>${esc(x.caso)}</td><td><b>${esc(x.tipo)}</b><div class="mono">${esc(x.a.ruta)}</div></td><td class="nota" style="max-width:420px">${esc(x.texto)}</td><td><button class="btn sm" data-ab="${i}">Abrir</button></td></tr>`; }).join("")}</tbody></table>`
+      :`<div class="vacio"><b>No hay fechas en este filtro</b>${VEN_F==="prox"?"Ningún documento vence en los próximos 90 días ni venció en el último año.":"Prueba con «Todos»."}</div>`}</div>`;
+  $("venF").value=VEN_F; $("venF").onchange=e=>{ VEN_F=e.target.value; pintarVen(); };
+  $("venQ").oninput=e=>{ VEN_Q=e.target.value; clearTimeout(pintarVen.t); pintarVen.t=setTimeout(()=>{ pintarVen(); const i=$("venQ"); if(i){ i.focus(); i.setSelectionRange(i.value.length,i.value.length); } },250); };
+  $("venRe").onclick=async()=>{ FICHAS.clear(); IDX.firma=""; try{ const db=await fdb(); if(db) db.transaction("f","readwrite").objectStore("f").clear(); }catch(e){} vVen(); };
+  $("venXls").onclick=()=>{ const ws=XLSX.utils.aoa_to_sheet([["Estado","Fecha","Días","Caso","Tipo","Archivo","Lo que dice el documento"],...lista.map(x=>[nivelVen(x.d)[1],x.fecha,x.d,x.caso,x.tipo,x.a.ruta,x.texto])]);
+    ws["!cols"]=[{wch:18},{wch:12},{wch:8},{wch:28},{wch:16},{wch:44},{wch:90}]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Vencimientos"); XLSX.writeFile(wb,`Vencimientos legales - ${hoyISO()}.xlsx`); };
+  $("venB").querySelectorAll("[data-ab]").forEach(b=>b.onclick=async()=>{ try{ const f=await lista[+b.dataset.ab].a.handle.getFile(); const u=URL.createObjectURL(f); window.open(u,"_blank"); setTimeout(()=>URL.revokeObjectURL(u),60000); }catch(e){ toast("No se pudo abrir el archivo",true); } });
+}
+// Inicio: aviso de vencimientos y estado del expediente de cada caso (se llenan solos al terminar de leer)
+async function inicioAuto(){
+  if(!CASOS.length) return;
+  let chks=[]; try{ chks=await q(SB.from("lg_checklists").select("*")); }catch(e){}
+  await indexar();
+  if(VISTA!=="inicio") return;
+  const v=IDX.ven.map(x=>diasA(x.fecha)); const venc=v.filter(d=>d<0&&d>=-365).length, prox=v.filter(d=>d>=0&&d<=90).length;
+  const al=$("iniVen"); if(al) al.innerHTML=venc||prox?`<div class="aviso" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>⏰ <b>Vencimientos:</b> ${venc?`${venc} documento(s) vencido(s) en el último año`:""}${venc&&prox?" · ":""}${prox?`${prox} vence(n) en los próximos 90 días`:""}.</span><button class="btn sm" id="iniVenB">Ver vencimientos →</button></div>`:"";
+  if($("iniVenB")) $("iniVenB").onclick=()=>SH.go("ven");
+  for(const c of CASOS){ const cel=$("main").querySelector(`[data-exp="${CSS.escape(c.nombre)}"]`); if(!cel) continue;
+    const chk=chks.find(x=>x.tipo_proceso===(META[c.nombre]||{}).tipo_proceso);
+    if(!chk||!(chk.items||[]).length){ cel.innerHTML=`<span class="nota">—</span>`; continue; }
+    try{ const r=await revisarExpediente(c,chk); const k=e=>r.items.filter(x=>EST_CI(x.estado)[0]===e).length;
+      if(VISTA!=="inicio") return;
+      cel.innerHTML=`<span class="tag ok" title="Completos">✓ ${k("ok")}</span> ${k("rev")?`<span class="tag rev" title="Por revisar">${k("rev")}</span>`:""} ${k("bad")?`<span class="tag bad" title="Faltan">✕ ${k("bad")}</span>`:""}`;
+    }catch(e){ cel.innerHTML=`<span class="nota">—</span>`; } }
 }
 
 /* ============================ Más herramientas ============================ */
@@ -2492,8 +2680,8 @@ return {ir:v=>{ if(!RAIZ){ VISTA=v; pantallaConectar(); } else ir(v); }, iniciar
   const v=document.createElement("div"); v.id="v-casos"; v.hidden=true; v.innerHTML='<div class="vhost" id="h-casos"></div>'; views.prepend(v);
   const host=document.getElementById("h-casos"); const root=host.attachShadow({mode:"open"}); root.append(document.getElementById("tpl-casos").content.cloneNode(true));
   const nav=document.getElementById("tabs");
-  [["inicio","Inicio"],["dd","Due diligence"],["red","Redacción"],["cierre","Cierre"]].reverse().forEach(([k,t])=>{ const b=document.createElement("button"); b.type="button"; b.dataset.v=k; b.setAttribute("aria-selected","false"); b.textContent=t; nav.prepend(b); });
-  const CAS=["inicio","dd","red","cierre"];
+  [["inicio","Inicio"],["dd","Due diligence"],["red","Redacción"],["cierre","Cierre"],["ven","Vencimientos"]].reverse().forEach(([k,t])=>{ const b=document.createElement("button"); b.type="button"; b.dataset.v=k; b.setAttribute("aria-selected","false"); b.textContent=t; nav.prepend(b); });
+  const CAS=["inicio","dd","red","cierre","ven"];
   let app=null, arrancado=false;
   SH.go=function(v){ this.view=v; const enCasos=CAS.includes(v);
     $s("#v-chat").hidden=v!=="chat"; $s("#v-ag").hidden=v!=="ag"; const d=$s("#v-doc"); if(d) d.hidden=v!=="doc"; $s("#v-casos").hidden=!enCasos;

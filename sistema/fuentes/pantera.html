@@ -351,6 +351,7 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
     <div class="hbtns">
       <button class="hbtn pri" id="btnActualizar" disabled>↻ Actualizar</button>
       <button class="hbtn" id="btnCambiar">📁 Cambiar carpeta</button>
+      <button class="hbtn hidden" id="btnInformePDF" title="Descargar en PDF el informe del mes que se ve en la Reportería Pantera">📄 Informe PDF</button>
       <button class="hbtn hidden" id="btnInstalarHdr" title="Instalar el dashboard como app: así no vuelve a pedir la carpeta">⬇ Instalar app</button>
       <span class="rolchip hidden" id="rolChip"></span>
       <button class="hbtn hidden" id="btnSalir" title="Cerrar sesión">⎋ Salir</button>
@@ -463,6 +464,7 @@ function setTab(t){
   TABS.forEach(x=>$("tab-"+x).classList.toggle("hidden",x!==t));
   document.body.classList.toggle("mapaPagina",t==="mapa"); if(t!=="mapa") window.scrollTo(0,0);
   if(t==="pantera"){ try{ pFrame.contentWindow.dispatchEvent(new Event("resize")); }catch(e){} }
+  $("btnInformePDF").classList.toggle("hidden",t!=="pantera");
   if(t==="mapa") cargarMapa();
 }
 /* ---------- Mapa del portafolio: el HTML del mapa vive en GitHub (Pantera-Portfolio-Map.html, junto a esta página).
@@ -932,6 +934,124 @@ function enviarPantera(files){
   clearTimeout(P_TIMER);
   P_TIMER=setTimeout(()=>{ if(P_ENVIANDO){ P_ENVIANDO=false; pCargando(false); } },60000);
 }
+
+/* ============================ Informe mensual en PDF ============================
+   Un clic: toma lo que muestra la Reportería Pantera (mes y sociedad elegidos) y descarga un PDF
+   con portada M&A, índice, encabezado y número de página. No cambia nada de la reportería. */
+const PDF_VISTAS=[["main","Reporte del mes"],["res","Resultados"],["val","Valor y deuda"],["port","Portafolio del fondo"]];
+const PDF_LOGO_MA="__LOGO_MYA__", PDF_LOGO_PANTERA="__LOGO_GOLD__";
+function pdfScript(doc,src,listo){ return new Promise((res,rej)=>{ if(listo()) return res(); const s=doc.createElement("script"); s.src=src; s.onload=()=>res(); s.onerror=()=>rej(new Error("no se pudo cargar "+src.split("/").pop()+" (revisa la conexión a internet)")); doc.head.appendChild(s); }); }
+const pdfEspera=ms=>new Promise(r=>setTimeout(r,ms));
+function pdfImg(src){ return new Promise(r=>{ const i=new Image(); i.onload=()=>r({src,w:i.naturalWidth,h:i.naturalHeight}); i.onerror=()=>r(null); i.src=src; }); }
+// html2canvas no entiende los colores modernos (color-mix → "color(srgb …)"): en la copia que fotografía se pasan a rgba
+const PDF_PROPS=["color","background-color","border-top-color","border-right-color","border-bottom-color","border-left-color","outline-color","text-decoration-color","box-shadow","background-image","fill","stroke","caret-color","column-rule-color"];
+const pdfRgba=v=>v.replace(/color\(srgb\s+([-\d.e]+)\s+([-\d.e]+)\s+([-\d.e]+)(?:\s*\/\s*([\d.]+%?))?\)/g,(m,r,g,b,a)=>{ const c=x=>Math.max(0,Math.min(255,Math.round(parseFloat(x)*255))); return `rgba(${c(r)},${c(g)},${c(b)},${a==null?1:String(a).endsWith("%")?parseFloat(a)/100:a})`; });
+function pdfColores(cd){ const win=cd.defaultView;
+  // html2canvas dibuja el contenido de los desplegables cerrados (<details>): en la copia se quita
+  cd.querySelectorAll("details:not([open])").forEach(dt=>[...dt.children].forEach(c=>{ if(c.tagName!=="SUMMARY") c.remove(); }));
+  cd.querySelectorAll("*").forEach(el=>{ const cs=win.getComputedStyle(el);
+  PDF_PROPS.forEach(p=>{ const v=cs.getPropertyValue(p); if(v&&v.includes("color(")) el.style.setProperty(p,pdfRgba(v),"important"); }); }); }
+// tablas más anchas que su tarjeta: se achican para que salgan completas (se deshace al terminar)
+function pdfTablas(sec){ const out=[];
+  sec.querySelectorAll(".scroll-x").forEach(x=>{ const t=[...x.querySelectorAll("table")].find(t=>t.offsetHeight>0&&t.getClientRects().length&&!t.closest("details:not([open])")); if(!t||!x.clientWidth||t.closest(".scroll-x")!==x) return; const f=x.clientWidth/x.scrollWidth;
+    if(f<0.995&&f>0.25){ out.push([x,x.getAttribute("style"),t,t.getAttribute("style")]); const h=t.offsetHeight;
+      t.style.transformOrigin="0 0"; t.style.transform="scale("+f+")"; t.style.marginBottom=(-h*(1-f))+"px"; x.style.overflow="hidden"; } });
+  return out; }
+async function informePDF(){
+  const btn=$("btnInformePDF"); if(btn.disabled) return;
+  let w=null,d=null; try{ w=pFrame.contentWindow; d=pFrame.contentDocument; }catch(e){}
+  if(P_ENVIANDO||!d||!d.getElementById("v-main")||typeof w.setView!=="function"){ banner("La reportería todavía se está armando. Espera a que termine y vuelve a pulsar <b>Informe PDF</b>.","err"); return; }
+  const pend=d.getElementById("v-pend");
+  if(pend&&!pend.hidden){ banner("No hay datos del mes elegido en la reportería: no hay nada que poner en el PDF.","err"); return; }
+  btn.disabled=true; pCargando(true,"Preparando el informe PDF…");
+  const raiz=d.documentElement, temaAntes=raiz.getAttribute("data-theme");
+  const tabAntes=d.querySelector('.tab[aria-selected="true"]'), vistaAntes=tabAntes?tabAntes.dataset.view:"main";
+  const minAntes=pFrame.style.minWidth;
+  let css=null;
+  try{
+    await pdfScript(document,"https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",()=>window.jspdf&&window.jspdf.jsPDF);
+    await pdfScript(d,"https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",()=>w.html2canvas);
+    // siempre en tema claro y con ancho de escritorio, para que el PDF salga igual en cualquier computadora
+    if(pFrame.getBoundingClientRect().width<1180){ pFrame.style.minWidth="1180px"; }
+    raiz.setAttribute("data-theme","light");
+    css=d.createElement("style"); css.textContent=".card{box-shadow:none!important}.colbar,.sec-tools,.sec-chev{display:none!important}"; d.head.appendChild(css);
+    const sel=id=>{ const s=d.getElementById(id); return s&&s.selectedIndex>=0?s.options[s.selectedIndex].text.trim():""; };
+    const periodo=(d.getElementById("hdrSub").textContent||"").split("·")[0].trim()||[sel("fPeriod"),sel("fYear")].filter(Boolean).join(" ");
+    const sociedad=sel("fEntity")||"Todas";
+    const {jsPDF}=window.jspdf; const pdf=new jsPDF({unit:"mm",format:"a4",orientation:"portrait",compress:true});
+    const PW=210, PH=297, M=12, CW=PW-2*M, TOP=18, BOT=15;
+    const indice=[];
+    for(const [v,titulo] of PDF_VISTAS){
+      pCargando(true,"Preparando el informe PDF · "+titulo+"…");
+      w.setView(v); w.dispatchEvent(new Event("resize")); await pdfEspera(900);
+      const sec=d.getElementById("v-"+v); if(!sec||sec.hidden||!sec.innerText.trim()) continue;
+      // en el PDF van todas las secciones abiertas (1 Rentas, 2 Cuentas por cobrar…) y las tablas anchas completas
+      const cerradas=[...sec.querySelectorAll(":scope > .sec:not(.open)")];
+      cerradas.forEach(x=>{ x.classList.add("open"); if(x._body) x._body.hidden=false; });
+      if(cerradas.length) await pdfEspera(800);
+      const ajustes=pdfTablas(sec);
+      let canvas, anchoPx, altoPx, cortes, y0;
+      try{
+        anchoPx=sec.offsetWidth; altoPx=sec.scrollHeight; const escala=Math.min(1.7,28000/Math.max(altoPx,1));
+        canvas=await w.html2canvas(sec,{scale:escala,backgroundColor:"#ffffff",logging:false,useCORS:true,windowWidth:d.documentElement.clientWidth,onclone:pdfColores});
+        y0=sec.getBoundingClientRect().top;
+        cortes=[...new Set([...sec.querySelectorAll(".card,.sec,tr,h3,h4,.chart-box,.grid>*,.g2>*,#execSum,#mainKpis,#miniKpis")].flatMap(e=>{ const b=e.getBoundingClientRect(); return b.height?[Math.round(b.top-y0),Math.round(b.bottom-y0)]:[]; }))].sort((a,b)=>a-b);
+      }finally{
+        ajustes.forEach(([x,sx,t,st])=>{ sx==null?x.removeAttribute("style"):x.setAttribute("style",sx); st==null?t.removeAttribute("style"):t.setAttribute("style",st); });
+        cerradas.forEach(x=>{ x.classList.remove("open"); if(x._body) x._body.hidden=true; });
+      }
+      const k=canvas.width/anchoPx, mm=CW/anchoPx;   // cortes de página: bordes de tarjetas, filas de tablas y títulos
+      let y=0, primera=true;
+      while(y<altoPx-4){
+        pdf.addPage();
+        const arriba=TOP+(primera?11:0), alto=(PH-BOT-arriba)/mm;
+        let fin=Math.min(altoPx,y+alto);
+        if(fin<altoPx){ const c=cortes.filter(c=>c>y+alto*0.4&&c<=fin); if(c.length) fin=c[c.length-1]; }
+        const cv=document.createElement("canvas"); cv.width=canvas.width; cv.height=Math.max(1,Math.round((fin-y)*k));
+        const g=cv.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,cv.width,cv.height); g.drawImage(canvas,0,Math.round(y*k),canvas.width,cv.height,0,0,canvas.width,cv.height);
+        if(primera){ indice.push([titulo,pdf.getNumberOfPages()]);
+          pdf.setFont("helvetica","bold"); pdf.setFontSize(14); pdf.setTextColor(15,36,64); pdf.text(indice.length+". "+titulo,M,TOP+6);
+          pdf.setDrawColor(227,194,122); pdf.setLineWidth(0.6); pdf.line(M,TOP+8.5,M+CW,TOP+8.5); primera=false; }
+        pdf.addImage(cv.toDataURL("image/jpeg",0.86),"JPEG",M,arriba,CW,(fin-y)*mm,undefined,"FAST");
+        y=fin;
+      }
+    }
+    if(!indice.length) throw new Error("la reportería no mostró contenido");
+    // portada
+    pdf.setPage(1);
+    pdf.setFillColor(15,36,64); pdf.rect(0,0,PW,128,"F");
+    pdf.setFillColor(227,194,122); pdf.rect(0,128,PW,1.6,"F");
+    const lma=await pdfImg(PDF_LOGO_MA), lpa=await pdfImg(PDF_LOGO_PANTERA);
+    if(lma){ const h=16, ww=h*lma.w/lma.h; pdf.addImage(lma.src,"PNG",M+4,16,ww,h); }
+    if(lpa){ const h=22, ww=h*lpa.w/lpa.h; pdf.addImage(lpa.src,"PNG",PW-M-4-ww,13,ww,h); }
+    pdf.setTextColor(227,194,122); pdf.setFont("helvetica","bold"); pdf.setFontSize(9.5); pdf.text("PANTERA REAL ESTATE FUND",M+4,66,{charSpace:0.6});
+    pdf.setTextColor(255,255,255); pdf.setFont("times","bold"); pdf.setFontSize(32); pdf.text("Informe mensual",M+4,82);
+    pdf.setFont("times","italic"); pdf.setFontSize(22); pdf.setTextColor(227,194,122); pdf.text(periodo||"",M+4,96);
+    pdf.setFont("helvetica","normal"); pdf.setFontSize(10.5); pdf.setTextColor(214,224,236); pdf.text("Sociedad: "+sociedad+"   ·   Cifras en dólares (US$)",M+4,110);
+    pdf.setTextColor(15,36,64); pdf.setFont("helvetica","bold"); pdf.setFontSize(11); pdf.text("CONTENIDO",M+4,150,{charSpace:0.5});
+    pdf.setFont("helvetica","normal"); pdf.setFontSize(12.5);
+    indice.forEach(([t,p],i)=>{ const yy=162+i*10; pdf.setTextColor(15,36,64); pdf.text((i+1)+". "+t,M+4,yy); pdf.setTextColor(120,130,146); pdf.text("pág. "+(p-1),PW-M-4,yy,{align:"right"});
+      pdf.setDrawColor(221,227,236); pdf.setLineWidth(0.2); pdf.line(M+4,yy+3,PW-M-4,yy+3); });
+    const hoy=new Date().toLocaleDateString("es-PA",{day:"numeric",month:"long",year:"numeric"});
+    pdf.setFontSize(9.5); pdf.setTextColor(120,130,146);
+    pdf.text("Preparado por M&A Capital el "+hoy+", con los archivos de la reportería del mes.",M+4,PH-24);
+    pdf.text("Documento confidencial.",M+4,PH-18);
+    // encabezado y número de página
+    const n=pdf.getNumberOfPages();
+    for(let i=2;i<=n;i++){ pdf.setPage(i);
+      pdf.setFont("helvetica","normal"); pdf.setFontSize(8); pdf.setTextColor(120,130,146);
+      pdf.text("M&A Capital · Pantera Real Estate Fund · Informe mensual "+(periodo||""),M,10);
+      pdf.setDrawColor(221,227,236); pdf.setLineWidth(0.2); pdf.line(M,12.5,PW-M,12.5);
+      pdf.text("Confidencial",M,PH-7); pdf.text("Página "+(i-1)+" de "+(n-1),PW-M,PH-7,{align:"right"}); }
+    const nombre=("Informe Pantera - "+(periodo||"mes")+(sociedad&&!/^(todas|consolidad)/i.test(sociedad)?" - "+sociedad:"")).replace(/[\\/:*?"<>|]+/g,"-");
+    pdf.save(nombre+".pdf");
+  }catch(e){ banner("No se pudo generar el PDF: "+esc(e&&e.message||String(e)),"err"); }
+  finally{
+    try{ if(css) css.remove(); if(temaAntes==null) raiz.removeAttribute("data-theme"); else raiz.setAttribute("data-theme",temaAntes); pFrame.style.minWidth=minAntes; w.setView(vistaAntes); w.dispatchEvent(new Event("resize")); }catch(e){}
+    pCargando(false); btn.disabled=false;
+  }
+}
+$("btnInformePDF").onclick=informePDF;
 
 /* ============================ Sesión ============================
    El acceso lo maneja el bloque M&A (mismo usuario y clave en todas las páginas).
