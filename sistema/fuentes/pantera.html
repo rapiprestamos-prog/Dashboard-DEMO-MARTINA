@@ -946,11 +946,14 @@ function pdfImg(src){ return new Promise(r=>{ const i=new Image(); i.onload=()=>
 // html2canvas no entiende los colores modernos (color-mix → "color(srgb …)"): en la copia que fotografía se pasan a rgba
 const PDF_PROPS=["color","background-color","border-top-color","border-right-color","border-bottom-color","border-left-color","outline-color","text-decoration-color","box-shadow","background-image","fill","stroke","caret-color","column-rule-color"];
 const pdfRgba=v=>v.replace(/color\(srgb\s+([-\d.e]+)\s+([-\d.e]+)\s+([-\d.e]+)(?:\s*\/\s*([\d.]+%?))?\)/g,(m,r,g,b,a)=>{ const c=x=>Math.max(0,Math.min(255,Math.round(parseFloat(x)*255))); return `rgba(${c(r)},${c(g)},${c(b)},${a==null?1:String(a).endsWith("%")?parseFloat(a)/100:a})`; });
-function pdfColores(cd){ const win=cd.defaultView;
+function pdfColores(cd,simple){ const win=cd.defaultView;
+  // elementos con tamaño 0 (o casi) hacen fallar a html2canvas ("createPattern … width or height of 0"): se les quita el fondo
+  cd.querySelectorAll("canvas").forEach(c=>{ if(!c.width||!c.height) c.remove(); });
   // html2canvas dibuja el contenido de los desplegables cerrados (<details>): en la copia se quita
   cd.querySelectorAll("details:not([open])").forEach(dt=>[...dt.children].forEach(c=>{ if(c.tagName!=="SUMMARY") c.remove(); }));
   cd.querySelectorAll("*").forEach(el=>{ const cs=win.getComputedStyle(el);
-  PDF_PROPS.forEach(p=>{ const v=cs.getPropertyValue(p); if(v&&v.includes("color(")) el.style.setProperty(p,pdfRgba(v),"important"); }); }); }
+  PDF_PROPS.forEach(p=>{ const v=cs.getPropertyValue(p); if(v&&v.includes("color(")) el.style.setProperty(p,pdfRgba(v),"important"); });
+  if(cs.backgroundImage&&cs.backgroundImage!=="none"){ const r=el.getBoundingClientRect(); if(simple||r.width<2||r.height<2) el.style.setProperty("background-image","none","important"); } }); }
 // tablas más anchas que su tarjeta: se achican para que salgan completas (se deshace al terminar)
 function pdfTablas(sec){ const out=[];
   sec.querySelectorAll(".scroll-x").forEach(x=>{ const t=[...x.querySelectorAll("table")].find(t=>t.offsetHeight>0&&t.getClientRects().length&&!t.closest("details:not([open])")); if(!t||!x.clientWidth||t.closest(".scroll-x")!==x) return; const f=x.clientWidth/x.scrollWidth;
@@ -993,7 +996,8 @@ async function informePDF(){
       let canvas, anchoPx, altoPx, cortes, y0;
       try{
         anchoPx=sec.offsetWidth; altoPx=sec.scrollHeight; const escala=Math.min(1.7,28000/Math.max(altoPx,1));
-        canvas=await w.html2canvas(sec,{scale:escala,backgroundColor:"#ffffff",logging:false,useCORS:true,windowWidth:d.documentElement.clientWidth,onclone:pdfColores});
+        const foto=simple=>w.html2canvas(sec,{scale:escala,backgroundColor:"#ffffff",logging:false,useCORS:true,windowWidth:d.documentElement.clientWidth,onclone:cd=>pdfColores(cd,simple)});
+        try{ canvas=await foto(false); }catch(e){ canvas=await foto(true); }   // si falla, se reintenta sin fondos decorativos
         y0=sec.getBoundingClientRect().top;
         cortes=[...new Set([...sec.querySelectorAll(".card,.sec,tr,h3,h4,.chart-box,.grid>*,.g2>*,#execSum,#mainKpis,#miniKpis")].flatMap(e=>{ const b=e.getBoundingClientRect(); return b.height?[Math.round(b.top-y0),Math.round(b.bottom-y0)]:[]; }))].sort((a,b)=>a-b);
       }finally{
