@@ -2417,6 +2417,8 @@ async function fichaDe(caso,a){
   if(!f){ f=armarFicha(a,await textoDe(a)); fichaGuardar(k,f); }
   FICHAS.set(k,f); return f;
 }
+// Resumen de la última lectura (lo usa el Resumen gerencial; sin textos de los documentos)
+function guardarResumen(extra){ try{ const k="agente_legal_resumen"; const r=JSON.parse(localStorage.getItem(k)||"{}"); Object.assign(r,extra,{fecha:Date.now()}); localStorage.setItem(k,JSON.stringify(r)); }catch(e){} }
 // Índice de toda la carpeta Legal (se arma una vez y se reutiliza mientras la carpeta no cambie)
 let IDX={prom:null,firma:"",hecho:0,total:0,ven:[],noLeidos:0,cb:null};
 const firmaCarpeta=()=>CASOS.map(c=>c.nombre+":"+c.archivos.map(a=>a.ruta+"|"+a.mod).join(",")).join(";");
@@ -2432,7 +2434,10 @@ function indexar(progreso){
       if(f&&!f.leido&&/\.(pdf|docx)$/i.test(a.nombre)) yo.noLeidos++;
       if(f) (f.fechas||[]).forEach(x=>ven.push({caso:c.nombre,a,tipo:f.tipo,fecha:x.f,texto:x.t})); } };
     await Promise.all([trabajar(),trabajar(),trabajar()]);
-    yo.ven=ven.sort((x,y)=>x.fecha.localeCompare(y.fecha)); return yo;
+    yo.ven=ven.sort((x,y)=>x.fecha.localeCompare(y.fecha));
+    guardarResumen({carpeta:RAIZ?RAIZ.name:"",casos:CASOS.map(c=>({nombre:c.nombre,docs:c.archivos.length,tipo:(META[c.nombre]||{}).tipo_proceso||null})),
+      ven:yo.ven.map(x=>({caso:x.caso,ruta:x.a.ruta,tipo:x.tipo,fecha:x.fecha})),noLeidos:yo.noLeidos,docs:yo.total});
+    return yo;
   })();
   return yo.prom;
 }
@@ -2603,13 +2608,16 @@ async function inicioAuto(){
   const v=IDX.ven.map(x=>diasA(x.fecha)); const venc=v.filter(d=>d<0&&d>=-365).length, prox=v.filter(d=>d>=0&&d<=90).length;
   const al=$("iniVen"); if(al) al.innerHTML=venc||prox?`<div class="aviso" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>⏰ <b>Vencimientos:</b> ${venc?`${venc} documento(s) vencido(s) en el último año`:""}${venc&&prox?" · ":""}${prox?`${prox} vence(n) en los próximos 90 días`:""}.</span><button class="btn sm" id="iniVenB">Ver vencimientos →</button></div>`:"";
   if($("iniVenB")) $("iniVenB").onclick=()=>SH.go("ven");
+  const EXP={};
   for(const c of CASOS){ const cel=$("main").querySelector(`[data-exp="${CSS.escape(c.nombre)}"]`); if(!cel) continue;
     const chk=chks.find(x=>x.tipo_proceso===(META[c.nombre]||{}).tipo_proceso);
     if(!chk||!(chk.items||[]).length){ cel.innerHTML=`<span class="nota">—</span>`; continue; }
     try{ const r=await revisarExpediente(c,chk); const k=e=>r.items.filter(x=>EST_CI(x.estado)[0]===e).length;
       if(VISTA!=="inicio") return;
+      EXP[c.nombre]={ok:k("ok"),rev:k("rev"),bad:k("bad"),proceso:chk.tipo_proceso};
       cel.innerHTML=`<span class="tag ok" title="Completos">✓ ${k("ok")}</span> ${k("rev")?`<span class="tag rev" title="Por revisar">${k("rev")}</span>`:""} ${k("bad")?`<span class="tag bad" title="Faltan">✕ ${k("bad")}</span>`:""}`;
     }catch(e){ cel.innerHTML=`<span class="nota">—</span>`; } }
+  guardarResumen({exp:EXP});
 }
 
 /* ============================ Más herramientas ============================ */

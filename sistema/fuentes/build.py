@@ -27,6 +27,7 @@ def escribir(nombre,s):
 leer=lambda f:open(f,encoding='utf-8').read()
 escribir('index.html',leer('src/inicio.html'))
 escribir('pantera.html',leer('src/pantera.html').replace('__PANTERA_B64__',base64.b64encode(open('reporte_pantera.html','rb').read()).decode()))
+escribir('gerencia.html',leer('src/gerencia.html').replace('__PANTERA_B64__',base64.b64encode(open('reporte_pantera.html','rb').read()).decode()))
 escribir('usuarios.html',leer('src/usuarios.html'))
 rep=leer('src/reportes_conta.html')
 for archivo,titulo,carpeta,modulo,conRep in (('contabilidad.html','Dashboard Contabilidad','Contabilidad','contabilidad',True),('dashboard-legal.html','Dashboard de Legal','Legal','legal',True)):
