@@ -72,7 +72,7 @@ table.t th{text-align:right;font-size:10.5px;letter-spacing:.08em;text-transform
 table.t th:first-child,table.t td:first-child{text-align:left}
 table.t td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums;white-space:nowrap}
 .inl{display:inline-block;height:6px;border-radius:3px;background:var(--c1);vertical-align:middle;margin-right:6px}
-.vacio{padding:26px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.55}.vacio b{display:block;color:var(--text);font-size:14.5px;margin-bottom:4px}
+.vacio{padding:26px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.55}.vacio>b{display:block;color:var(--text);font-size:14.5px;margin-bottom:4px}
 .guia{line-height:1.7;font-size:14px;color:var(--text-2)}.guia h3{color:var(--text);font-size:16px;margin:18px 0 6px}.guia h3:first-child{margin-top:0}.guia b{color:var(--text)}.guia ul,.guia ol{padding-left:20px;margin:6px 0}
 .prompt{background:#0f1c2e;color:#e6ecf5;border-radius:12px;padding:16px 18px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.6;white-space:pre-wrap;max-height:480px;overflow:auto}
 .spin{display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid #dbe3ee;border-top-color:var(--navy);animation:sp .8s linear infinite;vertical-align:middle;margin-right:6px}
@@ -176,7 +176,14 @@ function pintar(){
   $("app").querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{ VISTA=b.dataset.v; pintar(); });
   if($("dDesde")){ $("dDesde").onchange=e=>{ DESDE=e.target.value; pintar(); }; $("dHasta").onchange=e=>{ HASTA=e.target.value; pintar(); }; }
   $("heroSub").textContent=`${V.length} ventas · ${G.length} gastos · ${S.length} productos en stock${DEMO?" · datos de ejemplo":""}`;
-  if(!V.length&&!G.length&&!S.length&&VISTA!=="guia"){ $("vista").innerHTML=`<div class="card vacio"><b>La hoja todavía no tiene datos</b>Llena las pestañas <b>Ventas</b>, <b>Gastos</b> y <b>Stock</b> de la Hoja de Google (o pega ahí tu Excel) y pulsa Actualizar.</div>`; return; }
+  if(!V.length&&!G.length&&!S.length&&VISTA!=="guia"){ $("vista").innerHTML=`<div class="card vacio"><b>La hoja todavía no tiene datos</b>La conexión funciona, pero las pestañas <i>Ventas</i>, <i>Gastos</i> y <i>Stock</i> de la Hoja de Google están vacías.<br>Escribe o pega tus datos debajo de los encabezados (fila 1) y pulsa <i>Actualizar</i>.
+    <table style="margin:16px auto 0;border-collapse:collapse;font-size:12.5px;text-align:left">
+      <tr><td style="padding:5px 12px;font-weight:800;color:var(--text)">Ventas</td><td style="padding:5px 12px">Fecha · Producto · Categoria · Cliente · Vendedor · Cantidad · Precio_unitario · Costo_unitario</td></tr>
+      <tr><td style="padding:5px 12px;font-weight:800;color:var(--text)">Gastos</td><td style="padding:5px 12px">Fecha · Concepto · Categoria · Tipo (Fijo o Variable) · Monto</td></tr>
+      <tr><td style="padding:5px 12px;font-weight:800;color:var(--text)">Stock</td><td style="padding:5px 12px">Producto · Categoria · Stock · Stock_minimo · Costo_unitario · Precio_venta</td></tr></table>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">${HOJA?`<button class="btn pri" id="vAbrir">📗 Abrir la hoja</button>`:""}<button class="btn" id="vEj">👁 Ver con datos de ejemplo</button></div></div>`;
+    if($("vAbrir")) $("vAbrir").onclick=()=>window.open(HOJA,"_blank");
+    $("vEj").onclick=()=>{ DEMO=true; arrancar(); }; return; }
   ({general:vGeneral,ventas:vVentas,gastos:vGastos,stock:vStock,guia:vGuia})[VISTA](A,B,r,ra);
 }
 
