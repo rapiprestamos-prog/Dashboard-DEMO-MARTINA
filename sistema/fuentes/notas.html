@@ -356,7 +356,7 @@ function arrancar(){
   MA.listo.then(c=>YO=(c.email||"").toLowerCase());
   if(DEMO){ ejemplo(); pintar(); return; }
   if(!GS.url()){ GS.pantalla($("app"),{titulo:"Conectar el Tablero de Notas",descripcion:"Notas del equipo tipo post-it, en columnas, con casillas y recordatorios.",demo:()=>{ DEMO=true; arrancar(); },listo:arrancar}); return; }
-  $("app").innerHTML=`<div class="card vacio"><span class="spin"></span> Leyendo la Hoja de Google…</div>`; cargar();
+  $("app").innerHTML=`<div class="card vacio"><span class="spin"></span> Leyendo la Hoja de Google… <span style="display:block;font-size:12px;margin-top:4px">puede tardar unos segundos</span></div>`; cargar();
 }
 MA.listo.then(arrancar);
 </script>

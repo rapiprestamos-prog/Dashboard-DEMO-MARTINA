@@ -43,7 +43,8 @@ function procesar_(texto) {
   let r;
   try {
     const b = JSON.parse(texto || '{}');
-    prepararHoja_();
+    const cache = CacheService.getScriptCache();               // revisar las pestañas solo cada 10 minutos (más rápido)
+    if (!cache.get('hoja_ok')) { prepararHoja_(); cache.put('hoja_ok', '1', 600); }
     const yo = usuario_(b.token);
     const [area, accion] = String(b.accion || '').split('.');
     if (area === 'bitacora') { exigir_(yo, b.token, 'bitacora'); r = bitacora_(accion, b, yo); }

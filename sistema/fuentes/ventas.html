@@ -126,7 +126,7 @@ function preparar(r){
 }
 async function cargar(){
   if(DEMO){ preparar(ejemplo()); pintar(); return; }
-  $("app").innerHTML=`<div class="card vacio"><span class="spin"></span> Leyendo la Hoja de Google…</div>`;
+  $("app").innerHTML=`<div class="card vacio"><span class="spin"></span> Leyendo la Hoja de Google… <span style="display:block;font-size:12px;margin-top:4px">puede tardar unos segundos</span></div>`;
   try{ preparar(await GS.llamar("ventas.datos")); pintar(); }
   catch(e){ $("app").innerHTML=`<div class="card vacio"><b>No se pudo leer la Hoja de Google</b>${esc(e.message)}<br><br><button class="btn" id="reint">Reintentar</button></div>`; $("reint").onclick=cargar; }
 }
