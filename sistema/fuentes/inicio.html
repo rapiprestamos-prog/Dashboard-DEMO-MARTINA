@@ -381,6 +381,10 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
         <div class="mod-ban ban-gestion"><span class="mod-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="7" rx="1.5"/></svg></span></div>
         <div class="mod-body"><div class="mod-k">Equipo · Google Sheets</div><h3>Bitácora Ejecutiva</h3><p>Tablero de tareas y asignaciones, notas del equipo, obstáculos y el pulso de avance de cada proyecto y persona.</p><div class="mod-foot"><span class="mod-tag">Google Sheets · Apps Script</span><span class="mod-go">Entrar →</span></div></div>
       </div>
+      <div class="mod-card" id="cardNotas" data-tags="notas notitas tablero de notas post-it recordatorios ideas acuerdos google sheets" data-app="notas">
+        <div class="mod-ban ban-gestion"><span class="mod-ico"><svg viewBox="0 0 24 24"><path d="M4 4h12l4 4v12H4z"/><path d="M16 4v4h4"/><path d="M8 12h8M8 16h5"/></svg></span></div>
+        <div class="mod-body"><div class="mod-k">Equipo · Google Sheets</div><h3>Tablero de Notas</h3><p>Notas del equipo tipo post-it en columnas, con casillas, colores, etiquetas y recordatorios por correo.</p><div class="mod-foot"><span class="mod-tag">Google Sheets · Apps Script</span><span class="mod-go">Entrar →</span></div></div>
+      </div>
       <div class="mod-card" id="cardVentas" data-tags="ventas pulso comercial dashboard margen gastos stock inventario punto de equilibrio google sheets" data-app="ventas">
         <div class="mod-ban ban-gestion"><span class="mod-ico"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg></span></div>
         <div class="mod-body"><div class="mod-k">Comercial · Google Sheets</div><h3>Pulso Comercial</h3><p>Dashboard de ventas: ingresos, márgenes, punto de equilibrio, gastos e inventario, comparado con el período anterior.</p><div class="mod-foot"><span class="mod-tag">Google Sheets · Apps Script</span><span class="mod-go">Entrar →</span></div></div>
@@ -394,7 +398,7 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
 /* Inicio: cada tarjeta abre su propia página (un HTML por módulo). */
 const $=id=>document.getElementById(id);
 const norm=s=>String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
-const TARJETAS={cardMartina:"martina",cardContabilidad:"contabilidad",cardAgenteLegal:"agente_legal",cardLegal:"legal",cardTareas:"tareas",cardBitacora:"bitacora",cardVentas:"ventas"};
+const TARJETAS={cardMartina:"martina",cardContabilidad:"contabilidad",cardAgenteLegal:"agente_legal",cardLegal:"legal",cardTareas:"tareas",cardBitacora:"bitacora",cardNotas:"notas",cardVentas:"ventas"};
 for(const [card,id] of Object.entries(TARJETAS)){ const m=MA.MODULOS.find(x=>x.id===id); const c=$(card); c.onclick=()=>{ location.href=m.url; }; c.title="Abrir "+m.nombre; }
 function contarModulos(){
   let total=0;
