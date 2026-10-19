@@ -294,13 +294,13 @@ function vStock(A){
   const h=hoy(), v30=V.filter(x=>x.f>masDias(h,-30)&&x.f<=h), porDia={}; v30.forEach(x=>porDia[x.p]=(porDia[x.p]||0)+x.q/30);
   const it=S.map(s=>{ const d=porDia[s.p]||0, cob=d?s.st/d:null; const est=s.st<=0?["bad","Agotado"]:s.min&&s.st<=s.min?["bad","Reponer"]:cob!=null&&cob<15?["rev","Pronto"]:["ok","OK"]; return Object.assign({},s,{d,cob,est,val:s.st*s.cu,valV:s.st*s.pv}); })
     .sort((a,b)=>({bad:0,rev:1,ok:2}[a.est[0]]-{bad:0,rev:1,ok:2}[b.est[0]])||(a.cob??1e9)-(b.cob??1e9));
-  const tv=it.reduce((s,x)=>s+x.val,0), tvv=it.reduce((s,x)=>s+x.valV,0), rep=it.filter(x=>x.est[0]==="bad").length, sinMov=it.filter(x=>x.st>0&&!x.d).length;
+  const tv=it.reduce((s,x)=>s+x.val,0), aVen=it.filter(x=>x.pv>0), tvv=aVen.reduce((s,x)=>s+x.valV,0), mPot=aVen.reduce((s,x)=>s+x.st*(x.pv-x.cu),0), rep=it.filter(x=>x.est[0]==="bad").length, sinMov=aVen.filter(x=>x.st>0&&!x.d).length;
   $("vista").innerHTML=`
     <div class="kpis">
       <div class="kpi"><div class="l">Valor del inventario</div><div class="v">${fmt(tv)}</div><div class="d"><span>a costo</span><b>${it.length} productos</b></div></div>
-      <div class="kpi"><div class="l">A precio de venta</div><div class="v">${fmt(tvv)}</div><div class="d"><span>Margen potencial</span><b>${fmt(tvv-tv)}</b></div></div>
+      <div class="kpi"><div class="l">A precio de venta</div><div class="v">${fmt(tvv)}</div><div class="d"><span>${aVen.length} producto(s) a la venta · margen potencial</span><b>${fmt(mPot)}</b></div></div>
       <div class="kpi"><div class="l">Para reponer</div><div class="v ${rep?"neg":""}">${rep}</div><div class="d"><span>agotados o bajo el mínimo</span></div></div>
-      <div class="kpi"><div class="l">Sin movimiento</div><div class="v">${sinMov}</div><div class="d"><span>con stock y sin ventas en 30 días</span></div></div>
+      <div class="kpi"><div class="l">Sin movimiento</div><div class="v">${sinMov}</div><div class="d"><span>a la venta, con stock y sin ventas en 30 días</span></div></div>
     </div>
     <div class="card pad"><p class="ch-t">Inventario y cobertura</p><div class="ch-s">Cobertura = días que alcanza el stock al ritmo de venta de los últimos 30 días</div>
       <div style="overflow-x:auto"><table class="t"><thead><tr><th>Producto</th><th style="text-align:left">Categoría</th><th>Stock</th><th>Mínimo</th><th>Venta diaria</th><th>Cobertura</th><th>Valor a costo</th><th>Estado</th></tr></thead><tbody>

@@ -218,72 +218,146 @@ function avisoDiario() {
 }
 
 /* ---------------- datos de ejemplo (opcional) ----------------
- * cargarEjemplo: llena Ventas, Gastos y Stock (últimos 4 meses), Tareas, Notas, Comentarios e
+ * cargarEjemplo: llena Ventas, Gastos y Stock (últimos 22 meses, para comparar año contra año), Tareas, Notas, Comentarios e
  * Historial con datos INVENTADOS para ver los dashboards funcionando. Cada fila lleva «(ejemplo)»
- * (y en tareas y notas un id que empieza con «ej-»).
+ * (y en tareas, notas y comentarios un id que empieza con «ej-»).
  * borrarEjemplos: quita solo esas filas y deja intactos los datos reales. */
+function agregarFilas_(nombre, objs) {
+  if (!objs.length) return;
+  const h = SpreadsheetApp.getActive().getSheetByName(nombre), cab = h.getRange(1, 1, 1, h.getLastColumn()).getValues()[0].map(String);
+  h.getRange(h.getLastRow() + 1, 1, objs.length, cab.length).setValues(objs.map(o => cab.map(c => o[c] == null ? '' : o[c])));
+}
 function cargarEjemplo() {
   prepararHoja_(); borrarEjemplos();
-  let sem = 7; const rnd = () => (sem = (sem * 16807) % 2147483647) / 2147483647;
+  let sem = 7; const rnd = () => (sem = (sem * 16807) % 2147483647) / 2147483647, el = a => a[Math.floor(rnd() * a.length)];
   const E = ' (ejemplo)', z = zona_(), f = d => Utilities.formatDate(d, z, 'yyyy-MM-dd');
-  const P = [['Consultoría financiera','Servicios',1200,420],['Avalúo de inmueble','Servicios',650,210],['Due diligence','Legal',2400,900],['Redacción de contrato','Legal',380,90],
-             ['Gestión de alquileres','Inmobiliario',520,180],['Administración de fondos','Inversión',3100,1250],['Kits de bienvenida','Comercial',60,35]];
-  const CL = ['Inversiones Alfa','Grupo Beta','Comercial Delta','Fundación Omega','Constructora Sigma','Particular'], VE = ['Ana Pérez','Luis Gómez','Carlos Díaz'];
   const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
-  const ventas = [];
-  for (let i = 120; i >= 0; i--) {
-    const d = new Date(hoy.getTime() - i * 864e5), n = Math.floor(rnd() * 4);
-    for (let k = 0; k < n; k++) { const p = P[Math.floor(rnd() * P.length)];
-      ventas.push([f(d), p[0] + E, p[1], CL[Math.floor(rnd() * CL.length)], VE[Math.floor(rnd() * VE.length)], p[1] === 'Comercial' ? 1 + Math.floor(rnd() * 6) : 1, p[2], p[3]]); }
+  // producto, categoría, precio, costo, peso (frecuencia), unidades máx.
+  const P = [['Consultoría financiera','Servicios',1200,420,5,1],['Avalúo de inmueble','Servicios',650,210,7,1],['Valuación de portafolio','Servicios',4800,1900,1,1],
+             ['Due diligence','Legal',2400,900,3,1],['Redacción de contrato','Legal',380,90,6,1],['Estructuración de fideicomiso','Legal',3500,1300,1,1],
+             ['Gestión de alquileres','Inmobiliario',520,180,6,1],['Corretaje de venta','Inmobiliario',2900,800,1,1],
+             ['Administración de fondos','Inversión',3100,1250,2,1],['Asesoría tributaria','Servicios',900,300,3,1],
+             ['Kits de bienvenida','Comercial',60,35,4,8],['Brochure impreso','Comercial',12,4,3,30]];
+  const bolsa = []; P.forEach((p, i) => { for (let k = 0; k < p[4]; k++) bolsa.push(i); });
+  const CL = ['Inversiones Alfa','Grupo Beta','Comercial Delta','Fundación Omega','Constructora Sigma','Banco Épsilon','Familia Rivera','Hotelera Kappa','Desarrollos Zeta','Particular'];
+  const PESO_CL = [6,5,4,2,4,3,2,3,3,8], bolsaCl = []; PESO_CL.forEach((w, i) => { for (let k = 0; k < w; k++) bolsaCl.push(i); });
+  const VE = ['Ana Pérez','Luis Gómez','Carlos Díaz','Omayra Ríos'];
+  const ventas = [], porMes = {};
+  const DIAS = 660;
+  for (let i = DIAS; i >= 0; i--) {
+    const d = new Date(hoy.getTime() - i * 864e5), dow = d.getDay();
+    if (dow === 0) continue;                                   // domingos sin ventas
+    const crec = 0.8 + 0.6 * (DIAS - i) / DIAS, temp = d.getMonth() === 11 ? 1.3 : d.getMonth() === 0 ? 0.8 : 1;
+    const n = Math.floor(rnd() * 4.2 * crec * temp * (dow === 6 ? 0.4 : 1));
+    for (let k = 0; k < n; k++) {
+      const p = P[el(bolsa)], q = 1 + Math.floor(rnd() * p[5]), dto = rnd() < 0.15 ? 0.9 : 1;
+      ventas.push([f(d), p[0] + E, p[1], CL[el(bolsaCl)], el(VE), q, Math.round(p[2] * dto), p[3]]);
+      const m = f(d).slice(0, 7); porMes[m] = (porMes[m] || 0) + q * p[2] * dto;
+    }
   }
   const gastos = [];
-  for (let m = 4; m >= 0; m--) {
-    const d1 = new Date(hoy.getFullYear(), hoy.getMonth() - m, 1, 12), d15 = new Date(hoy.getFullYear(), hoy.getMonth() - m, 15, 12);
-    [['Alquiler de oficina','Oficina','Fijo',4200],['Planilla','Personal','Fijo',18500],['Software y licencias','Tecnología','Fijo',900]].forEach(g => gastos.push([f(d1), g[0] + E, g[1], g[2], g[3]]));
-    if (d15 <= hoy) [['Comisiones de venta','Comercial','Variable',1500 + Math.round(rnd() * 900)],['Viáticos','Operación','Variable',400 + Math.round(rnd() * 500)],['Publicidad','Comercial','Variable',700 + Math.round(rnd() * 600)]]
-      .forEach(g => gastos.push([f(d15), g[0] + E, g[1], g[2], g[3]]));
+  for (let m = 22; m >= 0; m--) {
+    const dia = n => new Date(hoy.getFullYear(), hoy.getMonth() - m, n, 12), mes = f(dia(1)).slice(0, 7);
+    const fijos = [['Alquiler de oficina','Oficina',4200,1],['Planilla','Personal',18500,28],['Cargas sociales','Personal',2300,28],['Software y licencias','Tecnología',900,5],
+                   ['Seguros','Administración',650,10],['Contabilidad externa','Administración',800,15],['Internet y telefonía','Tecnología',320,8]];
+    if (m <= 5) fijos[1][2] = 19800; else if (m >= 13) { fijos[1][2] = 17200; fijos[0][2] = 3900; }   // ajustes de planilla y alquiler
+    fijos.forEach(g => { if (dia(g[3]) <= hoy && dia(g[3]) >= new Date(hoy.getTime() - DIAS * 864e5)) gastos.push([f(dia(g[3])), g[0] + E, g[1], 'Fijo', g[2]]); });
+    const varis = [['Comisiones de venta','Comercial',Math.round((porMes[mes] || 0) * 0.05),25],['Publicidad digital','Comercial',600 + Math.round(rnd() * 900),12],
+                   ['Viáticos','Operación',300 + Math.round(rnd() * 600),18],['Electricidad','Oficina',420 + Math.round(rnd() * 160),20],['Mensajería y courier','Operación',90 + Math.round(rnd() * 120),22]];
+    if (m % 3 === 0) varis.push(['Capacitación','Personal',1200 + Math.round(rnd() * 800),16]);
+    if (m === 2 || m === 14) varis.push(['Evento con clientes','Comercial',3800,9]);
+    varis.forEach(g => { if (g[2] > 0 && dia(g[3]) <= hoy && dia(g[3]) >= new Date(hoy.getTime() - DIAS * 864e5)) gastos.push([f(dia(g[3])), g[0] + E, g[1], 'Variable', g[2]]); });
   }
-  const stock = [['Papelería corporativa','Insumos',12,20,8,0],['Tóner de impresora','Insumos',3,4,65,0],['Carpetas de cierre','Insumos',140,50,1.2,0],['Kits de bienvenida','Comercial',40,10,35,60],['Licencias de software','Tecnología',25,5,120,0]]
+  const stock = [['Kits de bienvenida','Comercial',18,25,35,60],['Brochure impreso','Comercial',240,150,4,12],['Agenda corporativa','Comercial',60,20,9,18],
+                 ['Papelería corporativa','Insumos',12,20,8,0],['Tóner de impresora','Insumos',3,4,65,0],['Carpetas de cierre','Insumos',140,50,1.2,0],
+                 ['Sobres membretados','Insumos',800,300,0.3,0],['Licencias de software','Tecnología',25,5,120,0],['Discos externos','Tecnología',2,3,85,0],['Tarjetas de presentación','Insumos',900,500,0.05,0]]
     .map(s => [s[0] + E].concat(s.slice(1)));
   const ss = SpreadsheetApp.getActive();
   [['Ventas', ventas], ['Gastos', gastos], ['Stock', stock]].forEach(([n, filas]) => {
     if (!filas.length) return; const h = ss.getSheetByName(n);
     h.getRange(h.getLastRow() + 1, 1, filas.length, filas[0].length).setValues(filas);
   });
-  ejemploBitacora_(f, hoy);
-  return { ventas: ventas.length, gastos: gastos.length, stock: stock.length };
+  const b = ejemploBitacora_(f, hoy);
+  return { ventas: ventas.length, gastos: gastos.length, stock: stock.length, tareas: b.tareas, notas: b.notas };
 }
 function ejemploBitacora_(f, hoy) {
-  const E = ' (ejemplo)', d = n => f(new Date(hoy.getTime() + n * 864e5)), t = n => d(n) + 'T09:00:00';
-  const P = ['Ana Pérez','Luis Gómez','Omayra Ríos','Carlos Díaz'], X = ['Cierre mensual Pantera','Due diligence Finca 45678','Renovación de contratos','Auditoría 2026'];
-  // titulo, responsable, proyecto, prioridad, estado, avance, inicio, limite, obstaculo, impacto, etiquetas, recurrencia, depende, aprobador, aprobacion
-  const T = [['Conciliar bancos de agosto',1,0,'Alta','En curso',60,-2,3,'','', 'banco, cierre','Mensual','','',''],
-    ['Enviar balance a gerencia',0,0,'Crítica','Pendiente',0,0,1,'','','cierre','No','','Martina','Pendiente'],
-    ['Revisar certificado del Registro Público',2,1,'Alta','Bloqueada',40,-5,-1,'Falta el certificado actualizado del Registro','Alto','legal','No','','',''],
-    ['Redactar promesa de compraventa',2,1,'Media','En curso',30,-3,6,'','','legal','No',2,'',''],
+  const E = ' (ejemplo)', d = n => f(new Date(hoy.getTime() + n * 864e5)), t = (n, h) => d(n) + 'T' + (h || '09:00') + ':00';
+  const P = ['Ana Pérez','Luis Gómez','Omayra Ríos','Carlos Díaz','Mariela Vargas','Jorge Castillo'];
+  const X = ['Cierre mensual Pantera','Due diligence Finca 45678','Renovación de contratos','Auditoría 2026','Lanzamiento Fondo II','Data Room inversionistas'];
+  // titulo, resp, proyecto, prioridad, estado, avance, inicio, límite, obstáculo, impacto, etiquetas, recurrencia, depende (índice), aprobador, aprobación
+  const T = [
+    ['Conciliar bancos del mes',1,0,'Alta','En curso',60,-2,3,'','','banco, cierre','Mensual','','',''],
+    ['Enviar balance a gerencia',0,0,'Crítica','Pendiente',0,0,1,'','','cierre','Mensual',0,'Martina','Pendiente'],
+    ['Revisar certificado del Registro Público',2,1,'Alta','Bloqueada',40,-6,-1,'Falta el certificado actualizado del Registro','Alto','legal','No','','',''],
+    ['Redactar promesa de compraventa',2,1,'Media','En curso',30,-3,6,'','','legal','No',2,'Martina','Pendiente'],
     ['Llamar a inquilino Local 3',3,2,'Media','Pendiente',0,1,4,'','','inquilinos','No','','',''],
-    ['Preparar adenda de renta',3,2,'Alta','Bloqueada',20,-8,2,'Esperando respuesta del inquilino','Medio','inquilinos','No','','',''],
-    ['Reunión con auditores',0,3,'Media','Hecha',100,-10,-6,'','','','No','','Martina','Aprobada'],
-    ['Entregar anexos de cuentas por cobrar',1,3,'Alta','Hecha',100,-14,-9,'','','','No','','',''],
-    ['Cargar avalúos al Data Room',0,0,'Baja','Pendiente',0,2,12,'','','','No','','',''],
+    ['Preparar adenda de renta',3,2,'Alta','Bloqueada',20,-8,2,'Esperando respuesta del inquilino','Medio','inquilinos','No',4,'',''],
+    ['Reunión con auditores',0,3,'Media','Hecha',100,-10,-6,'','','auditoría','No','','Martina','Aprobada'],
+    ['Entregar anexos de cuentas por cobrar',1,3,'Alta','Hecha',100,-14,-9,'','','auditoría','No','','',''],
+    ['Cargar avalúos al Data Room',4,5,'Media','En curso',50,-5,5,'','','data room','No','','',''],
     ['Actualizar flujo de caja',1,0,'Crítica','En curso',80,-4,-1,'','','banco','Semanal','','',''],
-    ['Firmar paz y salvo municipal',2,1,'Media','Hecha',100,-20,-15,'','','','No','','',''],
-    ['Revisar vencimientos de poderes',2,2,'Baja','Pendiente',0,3,20,'','','legal','No','','','']];
-  const ss = SpreadsheetApp.getActive();
-  T.forEach((x, i) => guardar_('Tareas', { id: 'ej-t' + i, titulo: x[0] + E, descripcion: '', responsable: P[x[1]], proyecto: X[x[2]], prioridad: x[3], estado: x[4], avance: x[5],
-    inicio: d(x[6]), limite: d(x[7]), obstaculo: x[8], impacto: x[9], creado: t(x[6]), creado_por: 'ejemplo', actualizado: t(-1), actualizado_por: 'ejemplo',
-    cerrado: x[4] === 'Hecha' ? d(x[7] - (i % 2)) : '', etiquetas: x[10], recurrencia: x[11], depende_de: x[12] === '' ? '' : 'ej-t' + x[12], enlace: '', aprobador: x[13], aprobacion: x[14] }));
-  const N = [['Acuerdos reunión lunes','[x] Cerrar conciliaciones antes del jueves\n[ ] Pedir certificado RP actualizado\n[ ] Revisar flujo con Martina','amarillo','true','','Acuerdos','reunión','',0],
+    ['Firmar paz y salvo municipal',2,1,'Media','Hecha',100,-20,-15,'','','legal','No','','',''],
+    ['Revisar vencimientos de poderes',2,2,'Baja','Pendiente',0,3,20,'','','legal','Trimestral','','',''],
+    ['Borrador del memorando de oferta',5,4,'Crítica','En curso',45,-12,8,'','','fondo II','No','','Martina','Cambios pedidos'],
+    ['Definir estructura de comisiones del fondo',5,4,'Alta','Hecha',100,-25,-12,'','','fondo II','No','','Martina','Aprobada'],
+    ['Opinión legal del fondo',2,4,'Alta','Bloqueada',35,-9,4,'El regulador no ha respondido la consulta','Alto','fondo II, legal','No',13,'',''],
+    ['Presentación para inversionistas',4,4,'Alta','Pendiente',0,2,14,'','','fondo II','No',12,'Martina','Pendiente'],
+    ['Ordenar carpetas del Data Room',4,5,'Media','Hecha',100,-18,-11,'','','data room','No','','',''],
+    ['Subir estados financieros auditados',1,5,'Alta','Pendiente',0,5,10,'','','data room','No',7,'',''],
+    ['Control de accesos del Data Room',3,5,'Media','En curso',70,-6,1,'','','data room','No','','',''],
+    ['Renovar contrato Bodega 7',3,2,'Alta','Hecha',100,-30,-21,'','','inquilinos','No','','Martina','Aprobada'],
+    ['Cobro de morosos de septiembre',0,2,'Crítica','En curso',55,-15,-3,'','','cobros','No','','',''],
+    ['Informe de ocupación',4,0,'Media','Hecha',100,-8,-4,'','','informes','Mensual','','',''],
+    ['Cierre de nómina',1,0,'Alta','Hecha',100,-6,-2,'','','planilla','Quincenal','','',''],
+    ['Inspección técnica Finca 45678',3,1,'Media','Pendiente',0,6,18,'','','','No','','',''],
+    ['Contestar requerimientos de auditoría',0,3,'Alta','En curso',40,-3,7,'','','auditoría','No','','',''],
+    ['Carta de gerencia de auditoría',5,3,'Media','Pendiente',0,10,30,'','','auditoría','No',24,'Martina',''],
+    ['Actualizar política de inversiones',5,4,'Baja','Pendiente',0,15,45,'','','políticas','No','','',''],
+    ['Revisión de seguros de propiedades',4,2,'Media','Bloqueada',25,-12,-2,'La aseguradora no envía la cotización','Bajo','seguros','No','','',''],
+    ['Reporte trimestral a inversionistas',4,0,'Alta','Hecha',100,-40,-33,'','','informes','Trimestral','','Martina','Aprobada'],
+    ['Depuración de proveedores',1,3,'Baja','Hecha',100,-50,-44,'','','','No','','',''],
+    ['Plan de mantenimiento 2027',3,2,'Media','Pendiente',0,20,50,'','','','No','','',''],
+    ['Conciliación de depósitos de garantía',0,2,'Alta','Hecha',100,-26,-19,'','','inquilinos, banco','No','','','']];
+  const tareas = T.map((x, i) => ({ id: 'ej-t' + i, titulo: x[0] + E, descripcion: '', responsable: P[x[1]], proyecto: X[x[2]], prioridad: x[3], estado: x[4], avance: x[5],
+    inicio: d(x[6]), limite: d(x[7]), obstaculo: x[8], impacto: x[9], creado: t(x[6]), creado_por: 'ejemplo', actualizado: t(x[4] === 'Bloqueada' ? -3 : -1), actualizado_por: 'ejemplo',
+    cerrado: x[4] === 'Hecha' ? d(x[7] - (i % 3)) : '', etiquetas: x[10], recurrencia: x[11], depende_de: x[12] === '' ? '' : 'ej-t' + x[12], enlace: '', aprobador: x[13], aprobacion: x[14] }));
+  agregarFilas_('Tareas', tareas);
+  // titulo, texto, color, fijada, tarea, columna, etiquetas, recordar (días), autor
+  const N = [
+    ['Acuerdos reunión lunes','[x] Cerrar conciliaciones antes del jueves\n[ ] Pedir certificado RP actualizado\n[ ] Revisar flujo con Martina','amarillo','true','','Acuerdos','reunión','',0],
     ['Idea','Agregar al informe mensual el comparativo de cap rate por activo.','azul','false','','Ideas','informes','',1],
-    ['Pendiente con el banco','Confirmar fecha de firma de la carta de aprobación.','rosa','false','ej-t2','Recordatorios','banco',d(0),2],
-    ['Llamar al avaluador','Por la Finca 45678.','naranja','false','','Por hacer','',d(2),3],
+    ['Pendiente con el banco','Confirmar fecha de firma de la carta de aprobación.','rosa','false','ej-t2','Recordatorios','banco',0,2],
+    ['Llamar al avaluador','Por la Finca 45678.','naranja','false','ej-t23','Por hacer','',2,3],
     ['Para el cierre','[ ] Estados de cuenta\n[ ] Planilla\n[x] Facturas de proveedores','verde','false','ej-t0','Por hacer','cierre','',1],
-    ['Visita a Local 3','El inquilino pidió revisar el aire acondicionado antes de renovar.','lila','false','','Recordatorios','inquilinos',d(-1),3]];
-  N.forEach((x, i) => guardar_('Notas', { id: 'ej-n' + i, titulo: x[0] + E, texto: x[1], color: x[2], fijada: x[3], tarea_id: x[4], autor: P[x[8]], creado: t(-i - 1), actualizado: t(-i - 1), tablero: x[5], etiquetas: x[6], recordar: x[7], orden: '' }));
-  [['ej-t0','Faltan los estados de cuenta del Banco General.',1,-1],['ej-t2','Ya se pidió al Registro, responden el viernes.',2,-2],['ej-t1','¿Lo enviamos antes del comité?',0,0]]
-    .forEach((c, i) => guardar_('Comentarios', { id: 'ej-c' + i, tarea_id: c[0], texto: c[1] + E, autor: P[c[2]], creado: t(c[3]) }));
-  const h = ss.getSheetByName('Historial');
-  T.forEach((x, i) => { h.appendRow([t(x[6]), P[x[1]], 'ej-t' + i, x[0] + E, 'Creó la tarea']); if (x[4] !== 'Pendiente') h.appendRow([t(x[6] + 1), P[x[1]], 'ej-t' + i, x[0] + E, 'Estado: Pendiente → ' + x[4]]); });
+    ['Visita a Local 3','El inquilino pidió revisar el aire acondicionado antes de renovar.','lila','false','ej-t4','Recordatorios','inquilinos',-1,3],
+    ['Fondo II — pendientes','[x] Estructura de comisiones\n[ ] Opinión legal\n[ ] Memorando de oferta\n[ ] Presentación','amarillo','true','ej-t12','Acuerdos','fondo II','',5],
+    ['Idea','Tablero de ocupación por propiedad con alerta cuando baje del 85%.','azul','false','','Ideas','informes','',4],
+    ['Comité de inversiones','Se aprobó revisar la tasa de descuento de las valuaciones cada trimestre.','verde','false','','Decisiones','comité','',5],
+    ['Decisión','Los contratos nuevos se firman con adenda de mantenimiento incluida.','verde','false','','Decisiones','legal, inquilinos','',2],
+    ['Cumpleaños del equipo','Jorge — 28 de este mes. Coordinar detalle.','rosa','false','','Recordatorios','equipo',9,0],
+    ['Seguros','Pedir otra cotización si la aseguradora no responde esta semana.','naranja','false','ej-t27','Por hacer','seguros',3,4],
+    ['Lecciones de la auditoría','• Anexos listos una semana antes\n• Un responsable por cada requerimiento','lila','false','ej-t24','Ideas','auditoría','',0],
+    ['Data Room','[x] Carpetas ordenadas\n[ ] Estados auditados\n[ ] Accesos por inversionista','verde','false','ej-t8','Por hacer','data room','',4],
+    ['Llamada con inversionista','Pidió el reporte trimestral en inglés.','amarillo','false','','Recordatorios','inversionistas',1,5]];
+  const notas = N.map((x, i) => ({ id: 'ej-n' + i, titulo: x[0] + E, texto: x[1], color: x[2], fijada: x[3], tarea_id: x[4], autor: P[x[8]], creado: t(-i - 1), actualizado: t(-Math.floor(i / 2)),
+    tablero: x[5], etiquetas: x[6], recordar: x[7] === '' ? '' : d(x[7]), orden: '' }));
+  agregarFilas_('Notas', notas);
+  const C = [[0,'Faltan los estados de cuenta del Banco General.',1,-1],[2,'Ya se pidió al Registro, responden el viernes.',2,-2],[1,'¿Lo enviamos antes del comité?',0,0],
+    [12,'Martina pidió ajustar la sección de riesgos.',5,-2],[12,'Ajustado, lo vuelvo a enviar mañana.',5,-1],[14,'Llamé al regulador, quedaron en responder esta semana.',2,-1],
+    [5,'El inquilino pide 30 días más para decidir.',3,-4],[20,'Quedan 3 inquilinos por cobrar.',0,-2],[27,'Segunda llamada a la aseguradora sin respuesta.',4,-1],
+    [8,'Subidos 18 de 24 avalúos.',4,0],[18,'Accesos creados para 5 inversionistas.',3,-1],[24,'Faltan 4 requerimientos por contestar.',0,-1]];
+  agregarFilas_('Comentarios', C.map((c, i) => ({ id: 'ej-c' + i, tarea_id: 'ej-t' + c[0], texto: c[1] + E, autor: P[c[2]], creado: t(c[3], '1' + (i % 8) + ':15') })));
+  const H = [];
+  T.forEach((x, i) => {
+    H.push([t(x[6]), P[x[1]], 'ej-t' + i, x[0] + E, 'Creó la tarea']);
+    if (x[4] !== 'Pendiente') H.push([t(x[6] + 1, '10:30'), P[x[1]], 'ej-t' + i, x[0] + E, 'Estado: Pendiente → En curso']);
+    if (x[4] === 'Bloqueada') H.push([t(-3, '15:00'), P[x[1]], 'ej-t' + i, x[0] + E, 'Estado: En curso → Bloqueada (' + x[8] + ')']);
+    if (x[4] === 'Hecha') H.push([tareas[i].cerrado + 'T16:00:00', P[x[1]], 'ej-t' + i, x[0] + E, 'Estado: En curso → Hecha']);
+    if (x[14] === 'Aprobada' || x[14] === 'Cambios pedidos') H.push([t(Math.min(x[7], 0) - 1, '11:00'), 'Martina', 'ej-t' + i, x[0] + E, 'Aprobación: ' + x[14]]);
+  });
+  H.sort((a, b) => a[0].localeCompare(b[0]));
+  const hh = SpreadsheetApp.getActive().getSheetByName('Historial'); hh.getRange(hh.getLastRow() + 1, 1, H.length, 5).setValues(H);
+  return { tareas: tareas.length, notas: notas.length };
 }
 function borrarEjemplos() {
   const ss = SpreadsheetApp.getActive();
