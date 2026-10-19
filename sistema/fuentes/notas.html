@@ -197,6 +197,7 @@ function pintar(){
     <div class="tabs">${[["columnas","🗂 Columnas"],["muro","🧱 Muro"],["agenda","⏰ Recordatorios"],["guia","💡 Guía y prompt"]].map(([k,l])=>`<button class="tab" data-v="${k}" aria-selected="${VISTA===k}">${l}</button>`).join("")}</div>
     <div id="vista"></div>`;
   if(DEMO) GS.avisoDemo($("app"),()=>{ DEMO=false; arrancar(); });
+  { const nEj=N.filter(n=>/^ej-/.test(n.id)).length; if(!DEMO&&nEj){ const w=document.createElement("div"); w.className="gs-demo"; w.innerHTML=`<span>👁 La hoja tiene <b>${nEj} registro(s) de ejemplo</b> (los que dicen «(ejemplo)»): son inventados para ver cómo funciona. Para quitarlos, la administradora ejecuta <b>borrarEjemplos</b> en Apps Script (borra solo los ejemplos).</span>`; $("app").prepend(w); } }
   const A=$("app");
   A.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{ VISTA=b.dataset.v; pintar(); });
   A.querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{ F.color=F.color===b.dataset.col?"":b.dataset.col; if(!F.color) delete F.color; pintar(); });

@@ -285,6 +285,7 @@ function pintar(){
     <div class="tabs">${[["tablero","🗂 Tablero"],["calendario","📅 Calendario"],["crono","📈 Cronograma"],["notas","📝 Notas"],["pulso","📊 Pulso del equipo"],["aprob","✅ Aprobaciones"+(T.filter(t=>t.aprobacion==="Pendiente").length?" ("+T.filter(t=>t.aprobacion==="Pendiente").length+")":"")],["actividad","🕘 Actividad"],["lista","☰ Lista"],["guia","💡 Guía y prompt"]].map(([k,l])=>`<button class="tab" data-v="${k}" aria-selected="${VISTA===k}">${l}</button>`).join("")}</div>
     <div id="vista"></div>`;
   if(DEMO) GS.avisoDemo($("app"),()=>{ DEMO=false; arrancar(); });
+  { const nEj=T.filter(t=>/^ej-/.test(t.id)).length+N.filter(n=>/^ej-/.test(n.id)).length; if(!DEMO&&nEj){ const w=document.createElement("div"); w.className="gs-demo"; w.innerHTML=`<span>👁 La hoja tiene <b>${nEj} registro(s) de ejemplo</b> (los que dicen «(ejemplo)»): son inventados para ver cómo funciona. Para quitarlos, la administradora ejecuta <b>borrarEjemplos</b> en Apps Script (borra solo los ejemplos).</span>`; $("app").prepend(w); } }
   $("app").querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{ PER=b.dataset.p; pintar(); });
   $("app").querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{ VISTA=b.dataset.v; pintar(); });
   $("app").querySelectorAll("[data-qf]").forEach(b=>b.onclick=()=>{ delete F[b.dataset.qf]; if(b.dataset.qf==="ids") delete F.etiqueta; pintar(); });

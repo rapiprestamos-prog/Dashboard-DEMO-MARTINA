@@ -218,8 +218,9 @@ function avisoDiario() {
 }
 
 /* ---------------- datos de ejemplo (opcional) ----------------
- * cargarEjemplo: llena Ventas, Gastos y Stock con datos INVENTADOS de los últimos 4 meses
- * para ver el dashboard funcionando. Cada fila lleva «(ejemplo)» en Producto o Concepto.
+ * cargarEjemplo: llena Ventas, Gastos y Stock (últimos 4 meses), Tareas, Notas, Comentarios e
+ * Historial con datos INVENTADOS para ver los dashboards funcionando. Cada fila lleva «(ejemplo)»
+ * (y en tareas y notas un id que empieza con «ej-»).
  * borrarEjemplos: quita solo esas filas y deja intactos los datos reales. */
 function cargarEjemplo() {
   prepararHoja_(); borrarEjemplos();
@@ -249,14 +250,50 @@ function cargarEjemplo() {
     if (!filas.length) return; const h = ss.getSheetByName(n);
     h.getRange(h.getLastRow() + 1, 1, filas.length, filas[0].length).setValues(filas);
   });
+  ejemploBitacora_(f, hoy);
   return { ventas: ventas.length, gastos: gastos.length, stock: stock.length };
+}
+function ejemploBitacora_(f, hoy) {
+  const E = ' (ejemplo)', d = n => f(new Date(hoy.getTime() + n * 864e5)), t = n => d(n) + 'T09:00:00';
+  const P = ['Ana Pérez','Luis Gómez','Omayra Ríos','Carlos Díaz'], X = ['Cierre mensual Pantera','Due diligence Finca 45678','Renovación de contratos','Auditoría 2026'];
+  // titulo, responsable, proyecto, prioridad, estado, avance, inicio, limite, obstaculo, impacto, etiquetas, recurrencia, depende, aprobador, aprobacion
+  const T = [['Conciliar bancos de agosto',1,0,'Alta','En curso',60,-2,3,'','', 'banco, cierre','Mensual','','',''],
+    ['Enviar balance a gerencia',0,0,'Crítica','Pendiente',0,0,1,'','','cierre','No','','Martina','Pendiente'],
+    ['Revisar certificado del Registro Público',2,1,'Alta','Bloqueada',40,-5,-1,'Falta el certificado actualizado del Registro','Alto','legal','No','','',''],
+    ['Redactar promesa de compraventa',2,1,'Media','En curso',30,-3,6,'','','legal','No',2,'',''],
+    ['Llamar a inquilino Local 3',3,2,'Media','Pendiente',0,1,4,'','','inquilinos','No','','',''],
+    ['Preparar adenda de renta',3,2,'Alta','Bloqueada',20,-8,2,'Esperando respuesta del inquilino','Medio','inquilinos','No','','',''],
+    ['Reunión con auditores',0,3,'Media','Hecha',100,-10,-6,'','','','No','','Martina','Aprobada'],
+    ['Entregar anexos de cuentas por cobrar',1,3,'Alta','Hecha',100,-14,-9,'','','','No','','',''],
+    ['Cargar avalúos al Data Room',0,0,'Baja','Pendiente',0,2,12,'','','','No','','',''],
+    ['Actualizar flujo de caja',1,0,'Crítica','En curso',80,-4,-1,'','','banco','Semanal','','',''],
+    ['Firmar paz y salvo municipal',2,1,'Media','Hecha',100,-20,-15,'','','','No','','',''],
+    ['Revisar vencimientos de poderes',2,2,'Baja','Pendiente',0,3,20,'','','legal','No','','','']];
+  const ss = SpreadsheetApp.getActive();
+  T.forEach((x, i) => guardar_('Tareas', { id: 'ej-t' + i, titulo: x[0] + E, descripcion: '', responsable: P[x[1]], proyecto: X[x[2]], prioridad: x[3], estado: x[4], avance: x[5],
+    inicio: d(x[6]), limite: d(x[7]), obstaculo: x[8], impacto: x[9], creado: t(x[6]), creado_por: 'ejemplo', actualizado: t(-1), actualizado_por: 'ejemplo',
+    cerrado: x[4] === 'Hecha' ? d(x[7] - (i % 2)) : '', etiquetas: x[10], recurrencia: x[11], depende_de: x[12] === '' ? '' : 'ej-t' + x[12], enlace: '', aprobador: x[13], aprobacion: x[14] }));
+  const N = [['Acuerdos reunión lunes','[x] Cerrar conciliaciones antes del jueves\n[ ] Pedir certificado RP actualizado\n[ ] Revisar flujo con Martina','amarillo','true','','Acuerdos','reunión','',0],
+    ['Idea','Agregar al informe mensual el comparativo de cap rate por activo.','azul','false','','Ideas','informes','',1],
+    ['Pendiente con el banco','Confirmar fecha de firma de la carta de aprobación.','rosa','false','ej-t2','Recordatorios','banco',d(0),2],
+    ['Llamar al avaluador','Por la Finca 45678.','naranja','false','','Por hacer','',d(2),3],
+    ['Para el cierre','[ ] Estados de cuenta\n[ ] Planilla\n[x] Facturas de proveedores','verde','false','ej-t0','Por hacer','cierre','',1],
+    ['Visita a Local 3','El inquilino pidió revisar el aire acondicionado antes de renovar.','lila','false','','Recordatorios','inquilinos',d(-1),3]];
+  N.forEach((x, i) => guardar_('Notas', { id: 'ej-n' + i, titulo: x[0] + E, texto: x[1], color: x[2], fijada: x[3], tarea_id: x[4], autor: P[x[8]], creado: t(-i - 1), actualizado: t(-i - 1), tablero: x[5], etiquetas: x[6], recordar: x[7], orden: '' }));
+  [['ej-t0','Faltan los estados de cuenta del Banco General.',1,-1],['ej-t2','Ya se pidió al Registro, responden el viernes.',2,-2],['ej-t1','¿Lo enviamos antes del comité?',0,0]]
+    .forEach((c, i) => guardar_('Comentarios', { id: 'ej-c' + i, tarea_id: c[0], texto: c[1] + E, autor: P[c[2]], creado: t(c[3]) }));
+  const h = ss.getSheetByName('Historial');
+  T.forEach((x, i) => { h.appendRow([t(x[6]), P[x[1]], 'ej-t' + i, x[0] + E, 'Creó la tarea']); if (x[4] !== 'Pendiente') h.appendRow([t(x[6] + 1), P[x[1]], 'ej-t' + i, x[0] + E, 'Estado: Pendiente → ' + x[4]]); });
 }
 function borrarEjemplos() {
   const ss = SpreadsheetApp.getActive();
-  [['Ventas', 'Producto'], ['Gastos', 'Concepto'], ['Stock', 'Producto']].forEach(([n, col]) => {
+  const ej = /\(ejemplo\)\s*$/, id = /^ej-/;
+  [['Ventas', 'Producto', ej], ['Gastos', 'Concepto', ej], ['Stock', 'Producto', ej], ['Tareas', 'id', id], ['Notas', 'id', id], ['Comentarios', 'id', id], ['Historial', 'tarea_id', id]].forEach(([n, col, rx]) => {
     const h = ss.getSheetByName(n); if (!h || h.getLastRow() < 2) return;
-    const c = h.getRange(1, 1, 1, h.getLastColumn()).getValues()[0].map(String).indexOf(col) + 1; if (!c) return;
-    const v = h.getRange(2, c, h.getLastRow() - 1, 1).getValues();
-    for (let i = v.length - 1; i >= 0; i--) if (/\(ejemplo\)\s*$/.test(String(v[i][0]))) h.deleteRow(i + 2);
+    const datos = h.getRange(1, 1, h.getLastRow(), h.getLastColumn()).getValues(), c = datos[0].map(String).indexOf(col); if (c < 0) return;
+    const quedan = datos.slice(1).filter(f => !rx.test(String(f[c])));
+    if (quedan.length === datos.length - 1) return;
+    h.getRange(2, 1, datos.length - 1, datos[0].length).clearContent();
+    if (quedan.length) h.getRange(2, 1, quedan.length, datos[0].length).setValues(quedan);
   });
 }
