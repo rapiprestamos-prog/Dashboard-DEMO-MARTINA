@@ -216,3 +216,47 @@ function avisoDiario() {
         <table style="border-collapse:collapse;font-size:14px">${filas}</table>${extra ? '<ul style="font-size:14px">' + extra + '</ul>' : ''}<p style="color:#888;font-size:12px">M&amp;A Capital · Bitácora Ejecutiva</p></div>` });
   });
 }
+
+/* ---------------- datos de ejemplo (opcional) ----------------
+ * cargarEjemplo: llena Ventas, Gastos y Stock con datos INVENTADOS de los últimos 4 meses
+ * para ver el dashboard funcionando. Cada fila lleva «(ejemplo)» en Producto o Concepto.
+ * borrarEjemplos: quita solo esas filas y deja intactos los datos reales. */
+function cargarEjemplo() {
+  prepararHoja_(); borrarEjemplos();
+  let sem = 7; const rnd = () => (sem = (sem * 16807) % 2147483647) / 2147483647;
+  const E = ' (ejemplo)', z = zona_(), f = d => Utilities.formatDate(d, z, 'yyyy-MM-dd');
+  const P = [['Consultoría financiera','Servicios',1200,420],['Avalúo de inmueble','Servicios',650,210],['Due diligence','Legal',2400,900],['Redacción de contrato','Legal',380,90],
+             ['Gestión de alquileres','Inmobiliario',520,180],['Administración de fondos','Inversión',3100,1250],['Kits de bienvenida','Comercial',60,35]];
+  const CL = ['Inversiones Alfa','Grupo Beta','Comercial Delta','Fundación Omega','Constructora Sigma','Particular'], VE = ['Ana Pérez','Luis Gómez','Carlos Díaz'];
+  const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
+  const ventas = [];
+  for (let i = 120; i >= 0; i--) {
+    const d = new Date(hoy.getTime() - i * 864e5), n = Math.floor(rnd() * 4);
+    for (let k = 0; k < n; k++) { const p = P[Math.floor(rnd() * P.length)];
+      ventas.push([f(d), p[0] + E, p[1], CL[Math.floor(rnd() * CL.length)], VE[Math.floor(rnd() * VE.length)], p[1] === 'Comercial' ? 1 + Math.floor(rnd() * 6) : 1, p[2], p[3]]); }
+  }
+  const gastos = [];
+  for (let m = 4; m >= 0; m--) {
+    const d1 = new Date(hoy.getFullYear(), hoy.getMonth() - m, 1, 12), d15 = new Date(hoy.getFullYear(), hoy.getMonth() - m, 15, 12);
+    [['Alquiler de oficina','Oficina','Fijo',4200],['Planilla','Personal','Fijo',18500],['Software y licencias','Tecnología','Fijo',900]].forEach(g => gastos.push([f(d1), g[0] + E, g[1], g[2], g[3]]));
+    if (d15 <= hoy) [['Comisiones de venta','Comercial','Variable',1500 + Math.round(rnd() * 900)],['Viáticos','Operación','Variable',400 + Math.round(rnd() * 500)],['Publicidad','Comercial','Variable',700 + Math.round(rnd() * 600)]]
+      .forEach(g => gastos.push([f(d15), g[0] + E, g[1], g[2], g[3]]));
+  }
+  const stock = [['Papelería corporativa','Insumos',12,20,8,0],['Tóner de impresora','Insumos',3,4,65,0],['Carpetas de cierre','Insumos',140,50,1.2,0],['Kits de bienvenida','Comercial',40,10,35,60],['Licencias de software','Tecnología',25,5,120,0]]
+    .map(s => [s[0] + E].concat(s.slice(1)));
+  const ss = SpreadsheetApp.getActive();
+  [['Ventas', ventas], ['Gastos', gastos], ['Stock', stock]].forEach(([n, filas]) => {
+    if (!filas.length) return; const h = ss.getSheetByName(n);
+    h.getRange(h.getLastRow() + 1, 1, filas.length, filas[0].length).setValues(filas);
+  });
+  return { ventas: ventas.length, gastos: gastos.length, stock: stock.length };
+}
+function borrarEjemplos() {
+  const ss = SpreadsheetApp.getActive();
+  [['Ventas', 'Producto'], ['Gastos', 'Concepto'], ['Stock', 'Producto']].forEach(([n, col]) => {
+    const h = ss.getSheetByName(n); if (!h || h.getLastRow() < 2) return;
+    const c = h.getRange(1, 1, 1, h.getLastColumn()).getValues()[0].map(String).indexOf(col) + 1; if (!c) return;
+    const v = h.getRange(2, c, h.getLastRow() - 1, 1).getValues();
+    for (let i = v.length - 1; i >= 0; i--) if (/\(ejemplo\)\s*$/.test(String(v[i][0]))) h.deleteRow(i + 2);
+  });
+}
