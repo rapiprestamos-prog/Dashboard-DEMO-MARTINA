@@ -67,7 +67,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* colores de nota */
 .n-amarillo{background:#fff6cc}.n-rosa{background:#fde4ea}.n-verde{background:#e1f5ea}.n-azul{background:#e2edfb}.n-lila{background:#ece6fb}.n-naranja{background:#ffe8d4}
 /* columnas */
-.cols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(270px,1fr);gap:12px;overflow-x:auto;padding-bottom:8px;align-items:start}
+.cols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(235px,1fr);gap:12px;overflow-x:auto;padding-bottom:8px;align-items:start}
 .colN{background:#e9eef5;border-radius:14px;padding:10px;min-height:260px;display:flex;flex-direction:column;gap:10px;transition:background .15s}
 .colN.sobre{background:#dce6f3;outline:2px dashed #2a62a0}
 .colN-h{display:flex;align-items:center;gap:8px;padding:2px 4px;font-weight:800;font-size:13px}
@@ -240,7 +240,7 @@ function enganchar(V){
 /* ---------- vistas ---------- */
 function vColumnas(vs){
   const tbs=tableros();
-  $("vista").innerHTML=`<div class="cols">${tbs.map(t=>{ const ns=ordenar(vs.filter(n=>(n.tablero||BASE[0])===t));
+  $("vista").innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="ch-s" style="margin:0">Arrastra las notas de una columna a otra · clic en una nota para editarla · 📌 para fijarla arriba</span><button class="btn sm" id="nCol2">＋ Nueva columna</button></div><div class="cols">${tbs.map(t=>{ const ns=ordenar(vs.filter(n=>(n.tablero||BASE[0])===t));
     return `<div class="colN" data-t="${esc(t)}"><div class="colN-h">${esc(t)}<span class="n">${ns.length}</span></div>${ns.map(nota).join("")||`<div class="vacio" style="padding:14px">Arrastra notas aquí</div>`}
       <button class="btn sm" data-add="${esc(t)}" style="justify-content:center;border-style:dashed">＋ Nota en ${esc(t)}</button></div>`; }).join("")}
     <div class="colN" style="background:none;border:1px dashed #b9c7da;min-height:120px;justify-content:center"><button class="btn" id="nCol">＋ Nueva columna</button></div></div>`;
@@ -248,7 +248,7 @@ function vColumnas(vs){
   V.querySelectorAll(".colN[data-t]").forEach(c=>{ c.ondragover=e=>{ e.preventDefault(); c.classList.add("sobre"); }; c.ondragleave=()=>c.classList.remove("sobre");
     c.ondrop=e=>{ e.preventDefault(); c.classList.remove("sobre"); const n=N.find(x=>x.id===e.dataTransfer.getData("text/plain")); if(n&&(n.tablero||BASE[0])!==c.dataset.t) guardar(Object.assign({},n,{tablero:c.dataset.t}),true); }; });
   V.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>editor({tablero:b.dataset.add}));
-  $("nCol").onclick=()=>{ const t=(prompt("Nombre de la nueva columna:")||"").trim(); if(t) editor({tablero:t}); };
+  $("nCol").onclick=$("nCol2").onclick=()=>{ const t=(prompt("Nombre de la nueva columna:")||"").trim(); if(t) editor({tablero:t}); };
 }
 function vMuro(vs){
   $("vista").innerHTML=vs.length?`<div class="muro">${ordenar(vs).map(nota).join("")}</div>`:`<div class="card vacio"><b>${N.length?"Ninguna nota coincide con el filtro":"Todavía no hay notas"}</b>${N.length?"Quita filtros o cambia la búsqueda.":"Escribe la primera en «Nota rápida»."}</div>`;
