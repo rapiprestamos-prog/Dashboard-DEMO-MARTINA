@@ -81,6 +81,23 @@ button{font:inherit}
 .mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}
 .mini div{background:var(--surface-2);border-radius:10px;padding:9px 11px}.mini b{display:block;font-size:19px;font-variant-numeric:tabular-nums}.mini span{font-size:11px;color:var(--muted);font-weight:600}
 .mini .bad b{color:var(--bad)}.mini .rev b{color:var(--warn)}.mini .ok b{color:var(--good)}
+.resumen{margin-top:14px;border-left:4px solid var(--gold-d)}
+.resumen .k2{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-d);font-weight:800;margin-bottom:6px}
+.resumen p{margin:0;font-size:14.5px;line-height:1.7;color:var(--text-2)} .resumen p b{color:var(--text)}
+table.rk{width:100%;border-collapse:collapse;font-size:13px}
+table.rk th{text-align:right;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+table.rk th:first-child,table.rk td:first-child{text-align:left}
+table.rk td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.rk tr:last-child td{border-bottom:0} table.rk tfoot td{font-weight:800;border-top:1px solid var(--border)}
+.barra{display:inline-block;height:6px;border-radius:3px;background:var(--c1);vertical-align:middle;margin-right:6px;opacity:.85}
+.ind{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ind div{background:var(--surface-2);border-radius:10px;padding:10px 12px}.ind b{display:block;font-size:18px;font-variant-numeric:tabular-nums}.ind span{font-size:11.5px;color:var(--muted);font-weight:600}
+.ind small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.hb{display:flex;align-items:center;gap:8px;font-size:12.5px;margin:6px 0}.hb .n{width:130px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb .b{flex:1;height:10px;background:var(--grid);border-radius:5px;overflow:hidden}.hb .b i{display:block;height:100%;border-radius:5px;background:var(--c1)}
+.hb .v{width:46px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.sub-t{font-weight:700;font-size:13.5px;margin:14px 0 4px}
+.kpis.k4{grid-template-columns:repeat(4,minmax(0,1fr))}@media (max-width:900px){.kpis.k4{grid-template-columns:1fr 1fr}}
 #motor{position:absolute;width:1200px;height:800px;left:-99999px;top:0;border:0;visibility:hidden}
 @media print{
   body{background:#fff}.hero .acc,.sec-h .go,#maHdr,.btn{display:none!important}
@@ -101,6 +118,7 @@ button{font:inherit}
   </header>
 
   <div class="aten" id="aten"></div>
+  <div class="card pad resumen hidden" id="narr"><div class="k2">Resumen ejecutivo</div><p id="narrTxt"></p></div>
 
   <!-- Finanzas -->
   <section class="sec">
@@ -149,6 +167,9 @@ function base(extra){ const grid=css("--grid"), t2=css("--text-2");
   return Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:300},
     plugins:{legend:{display:false},tooltip:{backgroundColor:"#0f1c2e",padding:10,cornerRadius:8,titleFont:{weight:"700"},bodyFont:{size:12.5}}},
     scales:{x:{grid:{display:false},ticks:{color:t2,font:{size:11.5}},border:{color:grid}},y:{grid:{color:grid},border:{display:false},ticks:{color:t2,font:{size:11.5}}}}},extra||{}); }
+const NARR={};
+function narrar(area,txt){ NARR[area]=txt; const t=["fin","por","leg","tar"].map(k=>NARR[k]).filter(Boolean).join(" ");
+  $("narr").classList.toggle("hidden",!t); $("narrTxt").innerHTML=t; }
 const ALERTAS={};
 function alertas(area,lista){ ALERTAS[area]=lista; const orden=["fin","por","leg","tar"];
   const todas=orden.flatMap(k=>ALERTAS[k]||[]); const peso={bad:0,warn:1,info:2,good:3}; todas.sort((a,b)=>peso[a.n]-peso[b.n]);
@@ -203,7 +224,8 @@ function extraer(w){
   return w.eval(`(()=>{ const ks=Object.keys(PERIODS).filter(k=>PERIODS[k].has).sort(); if(!ks.length) return null;
     const out={meses:[],ult:ks[ks.length-1]};
     ks.forEach(k=>{ const d=datosMes(k,"__ALL__"); if(d) out.meses.push({k,label:PERIODS[k].label,rev:d.m.rev,noi:d.m.noi,net:d.m.net,gop:d.m.gop,cash:d.m.cash,bank:d.m.bank,yrev:d.y.rev,ynoi:d.y.noi,ynet:d.y.net}); });
-    out.soc=inPeriod(out.ult,()=>ents().map(e=>{ const d=datosMes(out.ult,e); return d?{e,rev:d.m.rev,noi:d.m.noi,net:d.m.net}:null; }).filter(Boolean));
+    out.soc=inPeriod(out.ult,()=>ents().map(e=>{ const d=datosMes(out.ult,e); return d?{e,rev:d.m.rev,noi:d.m.noi,net:d.m.net,ebitda:d.m.ebitda,bank:d.m.bank,cash:d.m.cash,yrev:d.y.rev,ynet:d.y.net}:null; }).filter(Boolean));
+    const dU=datosMes(out.ult,"__ALL__"); out.mU=dU?dU.m:null; out.yU=dU?dU.y:null;
     try{ out.val=inPeriod(out.ult,()=>valOf("__ALL__")); out.valDate=VAL_DATE; }catch(e){}
     return JSON.parse(JSON.stringify(out)); })()`);
 }
@@ -229,6 +251,7 @@ function pintarFin(d,carpeta,n){
         <div class="box"><canvas id="cFinMes"></canvas></div></div>
       <div class="card pad"><p class="ch-t">Ingresos del mes por sociedad</p><div class="ch-s">${per}</div><div class="box" style="height:${Math.max(250,d.soc.length*30+40)}px"><canvas id="cFinSoc"></canvas></div></div>
     </div>`;
+  el.insertAdjacentHTML("beforeend",finAnalisis(d,per));
   const ms=d.meses.slice(-12), lab=ms.map(m=>MC[+m.k.slice(5,7)-1]+" "+m.k.slice(2,4));
   const serie=(k,c,l)=>({label:l,data:ms.map(m=>m[k]),borderColor:c,backgroundColor:c,borderWidth:2,pointRadius:ms.length>1?3:5,pointHoverRadius:6,tension:.25,borderRadius:4,maxBarThickness:56});
   grafico("cFinMes",{type:ms.length>1?"line":"bar",data:{labels:lab,datasets:[serie("rev",css("--c1"),"Ingresos"),serie("noi",css("--c2"),"NOI"),serie("net",css("--c3"),"Utilidad neta")]},
@@ -236,10 +259,48 @@ function pintarFin(d,carpeta,n){
   const so=d.soc.slice().sort((a,b)=>b.rev-a.rev);
   grafico("cFinSoc",{type:"bar",data:{labels:so.map(s=>s.e),datasets:[{label:"Ingresos",data:so.map(s=>s.rev),backgroundColor:css("--c1"),borderRadius:4,barPercentage:.7,borderSkipped:false}]},
     options:base({indexAxis:"y",plugins:{legend:{display:false},tooltip:{...base().plugins.tooltip,callbacks:{label:c=>` Ingresos: ${fmt(c.raw)}`}}},scales:{x:{...base().scales.y,ticks:{...base().scales.y.ticks,callback:x=>fmtK(x)}},y:{...base().scales.x}}})});
+  finGraficos(d);
+  const M=d.mU||{};
+  narrar("fin",`En <b>${per.toLowerCase()}</b> el fondo tuvo ingresos por <b>${fmt(ult.rev)}</b>${ant?` (${ult.rev>=ant.rev?"+":"−"}${pct(Math.abs((ult.rev-ant.rev)/(ant.rev||1)))} frente a ${ant.label.split(" ")[0].toLowerCase()})`:""}, un NOI de <b>${fmt(ult.noi)}</b> (margen ${pct(ult.rev?ult.noi/ult.rev:null)}) y una utilidad neta de <b>${fmt(ult.net)}</b>. En lo que va de ${ult.k.slice(0,4)} acumula ingresos por <b>${fmt(ult.yrev)}</b> y utilidad de <b>${fmt(ult.ynet)}</b>${M.cov!=null?`; el NOI cubre <b>${M.cov.toFixed(1)} veces</b> los intereses del mes`:""}.`);
   const al=[];
   al.push({n:ult.net>=0?"good":"bad",t:`<b>${per}</b> cierra con utilidad neta de <b>${fmt(ult.net)}</b>${ant?` (${ult.net>=ant.net?"sube":"baja"} frente a ${ant.label.toLowerCase()})`:""}.`});
   if(ant&&ult.rev<ant.rev) al.push({n:"warn",t:`Los ingresos bajaron <b>${pct((ant.rev-ult.rev)/ant.rev)}</b> frente a ${ant.label.toLowerCase()}.`});
   alertas("fin",al);
+}
+
+// Del ingreso a la utilidad, indicadores y ranking de sociedades
+function finAnalisis(d,per){
+  const M=d.mU||{}, Y=d.yU||{};
+  const x=v=>v==null||!isFinite(v)?"—":v.toFixed(2)+"x";
+  const deudaPat=M.equity?(M.liab/M.equity):null;
+  const so=d.soc.slice().sort((a,b)=>b.rev-a.rev), tot=so.reduce((t,s)=>t+(s.rev||0),0), max=Math.max(...so.map(s=>s.rev||0),1);
+  const T=k=>so.reduce((t,s)=>t+(s[k]||0),0);
+  return `<div class="g2" style="margin-top:12px">
+      <div class="card pad"><p class="ch-t">Del ingreso a la utilidad · ${esc(per)}</p><div class="ch-s">Consolidado · cómo se llega de los ingresos a la utilidad neta</div><div class="box" style="height:270px"><canvas id="cFinPuente"></canvas></div></div>
+      <div class="card pad"><p class="ch-t">Indicadores del mes</p><div class="ch-s">Calculados con los balances del mes</div>
+        <div class="ind">
+          <div><span>Margen NOI</span><b>${pct(M.noiM)}</b><small>NOI / ingresos</small></div>
+          <div><span>Margen EBITDA</span><b>${pct(M.ebitdaM)}</b><small>EBITDA ${fmtK(M.ebitda)}</small></div>
+          <div><span>Margen neto</span><b>${pct(M.netM)}</b><small>Utilidad / ingresos</small></div>
+          <div><span>Cobertura de intereses</span><b>${x(M.cov)}</b><small>NOI / intereses (${fmtK(M.interes)})</small></div>
+          <div><span>Liquidez corriente</span><b>${x(M.curr)}</b><small>Activo / pasivo corriente</small></div>
+          <div><span>Planilla / ingresos</span><b>${pct(M.plaPct)}</b><small>Planilla ${fmtK(M.pla)}</small></div>
+          <div><span>Deuda bancaria y bonos</span><b>${fmtK(M.bank)}</b><small>Accionistas ${fmtK(M.shl)}</small></div>
+          <div><span>Pasivos / patrimonio</span><b>${x(deudaPat)}</b><small>Patrimonio ${fmtK(M.equity)}</small></div>
+        </div></div>
+    </div>
+    <div class="card pad" style="margin-top:12px"><p class="ch-t">Ranking de sociedades · ${esc(per)}</p><div class="ch-s">Ordenadas por ingresos del mes</div>
+      <div style="overflow-x:auto"><table class="rk"><thead><tr><th>Sociedad</th><th>Ingresos del mes</th><th>% del total</th><th>NOI</th><th>Margen NOI</th><th>Utilidad neta</th><th>Ingresos del año</th><th>Caja</th></tr></thead><tbody>
+      ${so.map(s=>`<tr><td><b>${esc(s.e)}</b></td><td><span class="barra" style="width:${Math.round(60*(s.rev||0)/max)}px"></span>${fmt(s.rev)}</td><td>${pct(tot?s.rev/tot:null)}</td><td>${fmt(s.noi)}</td><td>${pct(s.rev?s.noi/s.rev:null)}</td><td class="${s.net<0?"dn":""}">${fmt(s.net)}</td><td>${fmt(s.yrev)}</td><td>${fmt(s.cash)}</td></tr>`).join("")}
+      </tbody><tfoot><tr><td>Total</td><td>${fmt(tot)}</td><td>100%</td><td>${fmt(T("noi"))}</td><td>${pct(tot?T("noi")/tot:null)}</td><td>${fmt(T("net"))}</td><td>${fmt(T("yrev"))}</td><td>${fmt(T("cash"))}</td></tr></tfoot></table></div></div>`;
+}
+function finGraficos(d){
+  const M=d.mU; if(!M) return;
+  const pasos=[["Ingresos",0,M.rev,"t"],["Gastos operativos",M.rev,M.rev-M.gop,"r"],["NOI",0,M.noi,"t"],["Depreciación",M.noi,M.noi-M.dep,"r"],["Gastos financieros",M.noi-M.dep,M.noi-M.dep-M.fin,"r"],["Otros",M.noi-M.dep-M.fin,M.net,"r"],["Utilidad neta",0,M.net,"n"]];
+  const col={t:css("--c1"),r:"#9aa7b8",n:css("--c3")};
+  grafico("cFinPuente",{type:"bar",data:{labels:pasos.map(p=>p[0]),datasets:[{label:"Monto",data:pasos.map(p=>[Math.min(p[1],p[2]),Math.max(p[1],p[2])]),backgroundColor:pasos.map(p=>col[p[3]]),borderRadius:4,borderSkipped:false,barPercentage:.7}]},
+    options:base({indexAxis:"y",plugins:{legend:{display:false},tooltip:{...base().plugins.tooltip,callbacks:{label:c=>{ const p=pasos[c.dataIndex]; const v=p[3]==="r"?p[2]-p[1]:p[2]; return ` ${p[0]}: ${fmt(v)}`; }}}},
+      scales:{x:{...base().scales.y,ticks:{...base().scales.y.ticks,callback:v=>fmtK(v)}},y:{...base().scales.x}}})});
 }
 
 /* ============================ Portafolio: datos del Data Room (archivo del mapa) ============================ */
@@ -258,21 +319,39 @@ async function portafolio(){
   A.forEach(a=>(a.leaseEndDates&&a.leaseEndDates.length?a.leaseEndDates:(a.leaseEnd&&/^\d{4}-/.test(a.leaseEnd)?[a.leaseEnd]:[])).forEach(f=>{ const y=+String(f).slice(0,4); if(y>=hoyY&&y<=hoyY+10) anios[y]=(anios[y]||0)+(+a.monthlyRent||0)/(a.leaseEndDates&&a.leaseEndDates.length||1); }));
   const ay=Object.keys(anios).map(Number).sort();
   const est={}; A.forEach(a=>est[a.status||"—"]=(est[a.status||"—"]||0)+1);
-  el.innerHTML=`<div class="kpis">
+  const m2=s("m2"), conCap=A.filter(a=>a.capRate!=null&&a.value), capP=conCap.reduce((t,a)=>t+a.capRate*a.value,0)/(conCap.reduce((t,a)=>t+a.value,0)||1);
+  // WALE: años que faltan para que venzan los contratos, ponderado por la renta
+  let wN=0,wD=0; A.forEach(a=>{ const fs=(a.leaseEndDates||[]).filter(f=>/^\d{4}-\d{2}-\d{2}$/.test(String(f))); if(!fs.length||!a.monthlyRent) return; const r=a.monthlyRent/fs.length; fs.forEach(f=>{ wN+=r*Math.max(0,diasA(f)/365.25); wD+=r; }); });
+  const wale=wD?wN/wD:null;
+  const inqAll=por("tenant","monthlyRent").filter(x=>x[0]!=="Sin dato"), top1=inqAll[0], top5=inqAll.slice(0,5).reduce((t,x)=>t+x[1],0);
+  const pais=por("country","value");
+  el.innerHTML=`<div class="kpis k4">
       <div class="kpi"><div class="l">Activos</div><div class="v">${A.length}</div><div class="d">${Object.entries(est).map(([k,n])=>`${n} ${esc(k)}`).join(" · ")}</div></div>
       <div class="kpi"><div class="l">Valor de los activos</div><div class="v">${fmtK(val)}</div><div class="d">Deuda ${fmtK(deuda)}</div></div>
       <div class="kpi"><div class="l">NAV</div><div class="v">${fmtK(nav)}</div><div class="d">valor − deuda</div></div>
       <div class="kpi"><div class="l">Renta mensual</div><div class="v">${fmtK(renta)}</div><div class="d">Anual ${fmtK(renta*12)}</div></div>
+      <div class="kpi"><div class="l">WALE</div><div class="v">${wale!=null?wale.toFixed(1)+" años":"—"}</div><div class="d">plazo promedio de contratos, ponderado por renta</div></div>
+      <div class="kpi"><div class="l">Cap rate ponderado</div><div class="v">${pct(capP)}</div><div class="d">${Math.round(m2).toLocaleString("en-US")} m² · ${fmt(m2?renta/m2:null).replace("$","$")}/m² al mes</div></div>
+      <div class="kpi"><div class="l">Concentración de renta</div><div class="v">${pct(top1&&renta?top1[1]/renta:null)}</div><div class="d">${top1?esc(top1[0]):""} · los 5 mayores ${pct(renta?top5/renta:null)}</div></div>
       <div class="kpi"><div class="l">LTV del Data Room</div><div class="v">${pct(ltv)}</div><div class="d">deuda / valor de los activos</div></div>
     </div>
     <div class="g3">
       <div class="card pad"><p class="ch-t">Valor por tipo de activo</p><div class="ch-s">US$ · ${clase.length} tipos</div><div class="box"><canvas id="cPorClase"></canvas></div></div>
       <div class="card pad"><p class="ch-t">Renta mensual por inquilino</p><div class="ch-s">Los ${inq.length} principales</div><div class="box"><canvas id="cPorInq"></canvas></div></div>
       <div class="card pad"><p class="ch-t">Renta mensual cuyos contratos vencen, por año</p><div class="ch-s">Próximos 10 años · según fecha de vencimiento del contrato</div><div class="box"><canvas id="cPorVence"></canvas></div></div>
+    </div>
+    <div class="g2" style="margin-top:12px">
+      <div class="card pad"><p class="ch-t">Activos principales</p><div class="ch-s">Los 10 de mayor valor</div>
+        <div style="overflow-x:auto"><table class="rk"><thead><tr><th>Activo</th><th>Tipo</th><th>Valor</th><th>Renta mensual</th><th>Cap rate</th><th>LTV</th><th>Vence</th></tr></thead><tbody>
+        ${A.slice().sort((a,b)=>(b.value||0)-(a.value||0)).slice(0,10).map(a=>{ const f=(a.leaseEndDates||[]).filter(x=>/^\d{4}-/.test(String(x))).sort()[0]; return `<tr><td><b>${esc(a.name)}</b><div class="nota" style="margin:0">${esc([a.city,a.country].filter(Boolean).join(", "))}</div></td><td>${esc(a.assetClass||"")}</td><td>${fmtK(a.value)}</td><td>${fmtK(a.monthlyRent)}</td><td>${pct(a.capRate)}</td><td>${pct(a.ltv)}</td><td>${f?String(f).slice(0,4):"—"}</td></tr>`; }).join("")}
+        </tbody></table></div></div>
+      <div class="card pad"><p class="ch-t">Valor por país</p><div class="ch-s">US$ · ${pais.length} país(es)</div><div class="box" style="height:${Math.max(160,pais.length*40+40)}px"><canvas id="cPorPais"></canvas></div>
+        <p class="sub-t">Estado de los activos</p>${Object.entries(est).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div class="hb"><span class="n">${esc(k)}</span><span class="b"><i style="width:${Math.round(100*n/A.length)}%"></i></span><span class="v">${n}</span></div>`).join("")}</div>
     </div>`;
   const hbar=(id,pares,lab)=>grafico(id,{type:"bar",data:{labels:pares.map(x=>x[0]),datasets:[{label:lab,data:pares.map(x=>x[1]),backgroundColor:css("--c1"),borderRadius:4,barPercentage:.7,borderSkipped:false}]},
     options:base({indexAxis:"y",plugins:{legend:{display:false},tooltip:{...base().plugins.tooltip,callbacks:{label:c=>` ${lab}: ${fmt(c.raw)}`}}},scales:{x:{...base().scales.y,ticks:{...base().scales.y.ticks,callback:x=>fmtK(x)}},y:{...base().scales.x}}})});
-  hbar("cPorClase",clase,"Valor"); hbar("cPorInq",inq,"Renta mensual");
+  hbar("cPorClase",clase,"Valor"); hbar("cPorInq",inq,"Renta mensual"); hbar("cPorPais",pais,"Valor");
+  narrar("por",`El portafolio suma <b>${A.length} activos</b> valorados en <b>${fmtK(val)}</b>, con renta mensual de <b>${fmtK(renta)}</b>, cap rate ponderado de <b>${pct(capP)}</b>${wale!=null?` y un plazo promedio de contratos (WALE) de <b>${wale.toFixed(1)} años</b>`:""}${top1&&renta?`; el mayor inquilino, ${esc(top1[0])}, aporta el <b>${pct(top1[1]/renta)}</b> de la renta`:""}.`);
   grafico("cPorVence",{type:"bar",data:{labels:ay.map(String),datasets:[{label:"Renta mensual que vence",data:ay.map(y=>anios[y]),backgroundColor:css("--c2"),borderRadius:4,barPercentage:.7,borderSkipped:false}]},
     options:base({plugins:{legend:{display:false},tooltip:{...base().plugins.tooltip,callbacks:{label:c=>` Renta mensual que vence: ${fmt(c.raw)}`}}},scales:{...base().scales,y:{...base().scales.y,ticks:{...base().scales.y.ticks,callback:x=>fmtK(x)}}}})});
   const al=[]; const prox=A.filter(a=>(a.leaseEndDates||[a.leaseEnd]).some(f=>/^\d{4}-\d{2}-\d{2}$/.test(String(f))&&diasA(f)>=0&&diasA(f)<=365));
@@ -296,7 +375,12 @@ function legal(){
       <p class="ch-t" style="margin-top:6px">Próximos vencimientos</p>
       ${prox.length?`<ul class="lst">${prox.map(x=>`<li><span class="f">${fISO(x.fecha)}</span><span class="t"><div><b>${esc(x.tipo)}</b> · ${esc(x.caso)}</div><small>${esc(x.ruta)}</small></span><span class="tag ${x.d<0?"bad":x.d<=30?"bad":"rev"}">${x.d<0?"Vencido":x.d===0?"Hoy":"En "+x.d+" d"}</span></li>`).join("")}</ul>`
         :`<div class="vacio" style="padding:14px">Ningún documento vence en los próximos 90 días ni venció en el último año.</div>`}
+      ${(()=>{ const t={}; ven.filter(x=>x.d>=-365).forEach(x=>t[x.tipo]=(t[x.tipo]||0)+1); const e=Object.entries(t).sort((a,b)=>b[1]-a[1]); const mx=Math.max(1,...e.map(x=>x[1]));
+        return e.length?`<p class="sub-t">Fechas de vencimiento por tipo de documento</p>${e.map(([k,n])=>`<div class="hb"><span class="n">${esc(k)}</span><span class="b"><i style="width:${Math.round(100*n/mx)}%"></i></span><span class="v">${n}</span></div>`).join("")}`:""; })()}
+      ${(()=>{ const t={}; (r.casos||[]).forEach(c=>{ const k=c.tipo||"Sin tipo de proceso"; t[k]=(t[k]||0)+1; }); const e=Object.entries(t).sort((a,b)=>b[1]-a[1]); const mx=Math.max(1,...e.map(x=>x[1]));
+        return e.length?`<p class="sub-t">Casos por tipo de proceso</p>${e.map(([k,n])=>`<div class="hb"><span class="n">${esc(k)}</span><span class="b"><i style="width:${Math.round(100*n/mx)}%;background:var(--c2)"></i></span><span class="v">${n}</span></div>`).join("")}`:""; })()}
     </div>`;
+  narrar("leg",`En Legal hay <b>${(r.casos||[]).length} caso(s)</b>${vencidos.length||v30.length||v90.length?`, con <b>${vencidos.length}</b> documento(s) vencido(s) en el último año y <b>${v30.length+v90.length}</b> por vencer en 90 días`:", sin documentos vencidos ni por vencer en 90 días"}.`);
   const al=[];
   if(vencidos.length) al.push({n:"bad",t:`<b>${vencidos.length} documento(s) legal(es) vencido(s)</b> en el último año${vencidos[0]?`, por ejemplo ${esc(vencidos[0].tipo.toLowerCase())} de «${esc(vencidos[0].caso)}»`:""}.`});
   if(v30.length||v90.length) al.push({n:"warn",t:`<b>${v30.length+v90.length} documento(s) legal(es)</b> vencen en los próximos 90 días${v30.length?` (${v30.length} en 30 días)`:""}.`});
@@ -319,6 +403,9 @@ async function tareas(){
   const resp={}; ab.forEach(t=>{ const r=t.responsable||"Sin responsable"; resp[r]=resp[r]||{v:0,a:0}; (t.fecha_tentativa&&t.fecha_tentativa<hoy)?resp[r].v++:resp[r].a++; });
   const rs=Object.entries(resp).sort((x,y)=>(y[1].v+y[1].a)-(x[1].v+x[1].a)).slice(0,8);
   const lista=venc.concat(sem).sort((a,b)=>a.fecha_tentativa.localeCompare(b.fecha_tentativa)).slice(0,6);
+  const hechas=T.filter(t=>t.estado==="Completada"&&t.fecha_real&&t.fecha_tentativa), aTiempo=hechas.filter(t=>t.fecha_real<=t.fecha_tentativa).length;
+  const proy={}; ab.forEach(t=>{ const k=carp[t.carpeta_id]||"Sin carpeta"; proy[k]=(proy[k]||0)+1; }); const pe=Object.entries(proy).sort((a,b)=>b[1]-a[1]).slice(0,6), pmx=Math.max(1,...pe.map(x=>x[1]));
+  const prio={}; ab.forEach(t=>prio[t.prioridad||"Media"]=(prio[t.prioridad||"Media"]||0)+1);
   el.innerHTML=`<div class="card pad">
       <div class="mini"><div><b>${ab.length}</b><span>Abiertas</span></div><div class="bad"><b>${venc.length}</b><span>Vencidas</span></div><div class="rev"><b>${sem.length}</b><span>Vencen en 7 días</span></div><div class="ok"><b>${comp.length}</b><span>Completadas este mes</span></div></div>
       <p class="ch-t">Tareas abiertas por responsable</p>
@@ -327,7 +414,11 @@ async function tareas(){
       <p class="ch-t" style="margin-top:12px">Vencidas y de esta semana</p>
       ${lista.length?`<ul class="lst">${lista.map(t=>{ const d=diasA(t.fecha_tentativa); return `<li><span class="f">${fISO(t.fecha_tentativa)}</span><span class="t"><div><b>${esc(t.titulo)}</b></div><small>${esc(t.responsable||"Sin responsable")}${carp[t.carpeta_id]?" · "+esc(carp[t.carpeta_id]):""}</small></span><span class="tag ${d<0?"bad":"rev"}">${d<0?"Vencida":d===0?"Hoy":"En "+d+" d"}</span></li>`; }).join("")}</ul>`
         :`<div class="vacio" style="padding:14px">No hay tareas vencidas ni para esta semana.</div>`}
+      <p class="sub-t">Tareas abiertas por proyecto</p>${pe.map(([k,n])=>`<div class="hb"><span class="n">${esc(k)}</span><span class="b"><i style="width:${Math.round(100*n/pmx)}%;background:var(--c2)"></i></span><span class="v">${n}</span></div>`).join("")}
+      <div class="ind" style="margin-top:12px"><div><span>Completadas a tiempo</span><b>${hechas.length?pct(aTiempo/hechas.length):"—"}</b><small>${aTiempo} de ${hechas.length} con fecha real y tentativa</small></div>
+        <div><span>Abiertas de prioridad alta</span><b>${(prio["Crítica"]||0)+(prio["Alta"]||0)}</b><small>${prio["Crítica"]||0} críticas · ${prio["Alta"]||0} altas</small></div></div>
     </div>`;
+  narrar("tar",`El equipo tiene <b>${ab.length} tarea(s) abierta(s)</b>${venc.length?`, <b>${venc.length}</b> de ellas vencidas`:""}${hechas.length?`, y cumplió a tiempo el <b>${pct(aTiempo/hechas.length)}</b> de las terminadas`:""}.`);
   grafico("cTar",{type:"bar",data:{labels:rs.map(x=>x[0]),datasets:[{label:"Vencidas",data:rs.map(x=>x[1].v),backgroundColor:css("--bad"),borderRadius:4,borderSkipped:false,barPercentage:.7},{label:"Al día",data:rs.map(x=>x[1].a),backgroundColor:css("--c1"),borderRadius:4,borderSkipped:false,barPercentage:.7}]},
     options:base({indexAxis:"y",plugins:{legend:{display:false},tooltip:base().plugins.tooltip},scales:{x:{...base().scales.y,stacked:true,ticks:{...base().scales.y.ticks,precision:0}},y:{...base().scales.x,stacked:true}}})});
   const al=[];
