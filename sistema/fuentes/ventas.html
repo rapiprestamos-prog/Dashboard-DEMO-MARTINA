@@ -108,7 +108,7 @@ const masDias=(s,n)=>new Date(Date.parse(s)+n*864e5).toISOString().slice(0,10);
 const difDias=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
 const fCorta=s=>new Date(s+"T12:00:00").toLocaleDateString("es-PA",{day:"numeric",month:"short",year:"numeric"});
 const MC=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-let V=[], G=[], S=[], HOJA="", DEMO=false, VISTA="general", PER="mes", DESDE="", HASTA="";
+let IGN={v:0,g:0}, V=[], G=[], S=[], HOJA="", DEMO=false, VISTA="general", PER="mes", DESDE="", HASTA="";
 const CH={};
 function grafico(id,cfg){ if(CH[id]) CH[id].destroy(); const el=$(id); if(el&&window.Chart) CH[id]=new Chart(el,cfg); }
 function base(x){ const g=css("--grid"),t=css("--text-2"); return Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:300},
@@ -117,6 +117,7 @@ function base(x){ const g=css("--grid"),t=css("--text-2"); return Object.assign(
 
 /* ============================ datos ============================ */
 function preparar(r){
+  const sinF=(l,k)=>(l||[]).filter(x=>!fecha(x.Fecha)&&Object.keys(x).some(c=>x[c]!==""&&x[c]!=null)).length; IGN={v:sinF(r.ventas),g:sinF(r.gastos)};
   V=(r.ventas||[]).map(x=>({f:fecha(x.Fecha),p:String(x.Producto||"Sin producto"),c:String(x.Categoria||"Sin categoría"),cl:String(x.Cliente||""),ve:String(x.Vendedor||""),q:num(x.Cantidad)||1,pu:num(x.Precio_unitario),cu:num(x.Costo_unitario)}))
     .filter(x=>x.f).map(x=>Object.assign(x,{ing:x.q*x.pu,cmv:x.q*x.cu}));
   G=(r.gastos||[]).map(x=>({f:fecha(x.Fecha),con:String(x.Concepto||""),c:String(x.Categoria||"Sin categoría"),t:/fij/i.test(x.Tipo)?"Fijo":"Variable",m:num(x.Monto)})).filter(x=>x.f);
@@ -172,6 +173,10 @@ function pintar(){
     <div class="tabs">${[["general","General"],["ventas","Ventas"],["gastos","Gastos"],["stock","Stock"],["guia","💡 Guía y prompt"]].map(([k,l])=>`<button class="tab" data-v="${k}" aria-selected="${VISTA===k}">${l}</button>`).join("")}</div>
     <div id="vista"></div>`;
   if(DEMO) GS.avisoDemo($("app"),()=>{ DEMO=false; arrancar(); });
+  const ej=/\(ejemplo\)\s*$/, nEj=V.filter(x=>ej.test(x.p)).length+G.filter(x=>ej.test(x.con)).length+S.filter(x=>ej.test(x.p)).length;
+  if(!DEMO&&nEj){ const w=document.createElement("div"); w.className="gs-demo"; w.innerHTML=`<span>👁 La hoja tiene <b>${nEj} fila(s) de ejemplo</b> (las que dicen «(ejemplo)»): son datos inventados para ver el dashboard funcionando. Cuando cargues los datos reales, bórralas en la hoja o pídele a la administradora que ejecute <b>borrarEjemplos</b> en Apps Script.</span>`; $("app").prepend(w); }
+  if(!DEMO&&(IGN.v||IGN.g)){ const w=document.createElement("div"); w.className="gs-demo"; w.style.background="#fbeceb"; w.style.borderColor="#f1c9c5"; w.style.color="#7c2620";
+    w.innerHTML=`<span>⚠ <b style="color:#7c2620">${[IGN.v&&IGN.v+" fila(s) de Ventas",IGN.g&&IGN.g+" fila(s) de Gastos"].filter(Boolean).join(" y ")}</b> no se cuentan porque no tienen <b style="color:#7c2620">Fecha</b> (columna A). Complétala en la hoja y pulsa Actualizar.</span>`; $("app").prepend(w); }
   $("app").querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{ PER=b.dataset.p; if(PER==="rango"&&!DESDE){ DESDE=masDias(hoy(),-29); HASTA=hoy(); } pintar(); });
   $("app").querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{ VISTA=b.dataset.v; pintar(); });
   if($("dDesde")){ $("dDesde").onchange=e=>{ DESDE=e.target.value; pintar(); }; $("dHasta").onchange=e=>{ HASTA=e.target.value; pintar(); }; }
