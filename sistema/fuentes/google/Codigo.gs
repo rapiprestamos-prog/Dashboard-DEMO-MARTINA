@@ -29,14 +29,20 @@ const TABLAS = {
 };
 
 /* ---------------- entrada ---------------- */
-function doGet() {
+// Los pedidos llegan por GET (?q=JSON, más fiable: no se pierde en las redirecciones de Google) o por POST.
+function doGet(e) {
+  if (e && e.parameter && e.parameter.q) return procesar_(e.parameter.q);
   return ContentService.createTextOutput('M&A Capital · servicio de Bitácora Ejecutiva y Pulso Comercial activo.');
 }
 
 function doPost(e) {
+  return procesar_((e && e.postData && e.postData.contents) || '{}');
+}
+
+function procesar_(texto) {
   let r;
   try {
-    const b = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    const b = JSON.parse(texto || '{}');
     prepararHoja_();
     const yo = usuario_(b.token);
     const [area, accion] = String(b.accion || '').split('.');

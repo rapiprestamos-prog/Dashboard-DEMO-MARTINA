@@ -24,11 +24,20 @@ window.GS=(function(){
   const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   async function llamar(accion,datos,u){
     const c=await MA.listo; const dir=u||url(); if(!dir) throw new Error("La Hoja de Google todavía no está conectada.");
-    let r; try{ r=await fetch(dir,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({accion,token:c.token},datos||{}))}); }
-    catch(e){ throw new Error("No hubo respuesta de Google. Revisa la conexión a internet o la URL de la aplicación web."); }
-    let j; try{ j=await r.json(); }catch(e){ throw new Error("Google no devolvió datos: revisa que la implementación tenga acceso para «Cualquier usuario»."); }
-    if(!j.ok) throw new Error(j.error||"Google devolvió un error");
-    return j.datos;
+    const cuerpo=JSON.stringify(Object.assign({accion,token:c.token},datos||{})), q=encodeURIComponent(cuerpo);
+    // Google a veces redirige el pedido y lo pierde: se intenta por GET (?q=) y por POST, hasta 3 vueltas.
+    const intentos=[]; for(let i=0;i<3;i++){ if(q.length<7500) intentos.push("get"); intentos.push("post"); }
+    let red=false, ultimo="";
+    for(const modo of intentos){
+      let r; try{ r=modo==="get"?await fetch(dir+(dir.includes("?")?"&":"?")+"q="+q,{cache:"no-store"}):await fetch(dir,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:cuerpo}); }
+      catch(e){ red=true; continue; }
+      let t=""; try{ t=await r.text(); }catch(e){ continue; }
+      let j=null; try{ j=JSON.parse(t); }catch(e){ ultimo=t.slice(0,80); continue; }
+      if(!j.ok) throw new Error(j.error||"Google devolvió un error");
+      return j.datos;
+    }
+    if(red&&!ultimo) throw new Error("No hubo respuesta de Google. Revisa la conexión a internet y pulsa Reintentar.");
+    throw new Error("Google tardó o no devolvió datos. Pulsa Reintentar; si sigue igual, revisa que la implementación tenga acceso para «Cualquiera».");
   }
   // Pantalla para conectar (o ver el ejemplo) cuando todavía no hay Hoja de Google
   async function pantalla(el,o){
