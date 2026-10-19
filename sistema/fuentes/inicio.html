@@ -377,6 +377,14 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
         <div class="mod-ban ban-gestion"><span class="mod-ico"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/></svg></span></div>
         <div class="mod-body"><div class="mod-k">Equipo</div><h3>Seguimiento de tareas</h3><p>Plan de trabajo, carpetas por proyecto y avances de cada tarea. Los datos se guardan en Supabase; también se puede adaptar para usar Google Sheets.</p><div class="mod-foot"><span class="mod-tag">Supabase · Google Sheets opcional</span><span class="mod-go">Entrar →</span></div></div>
       </div>
+      <div class="mod-card" id="cardBitacora" data-tags="bitacora bitácora ejecutiva tablero kanban notas obstaculos obstáculos asignaciones google sheets" data-app="bitacora">
+        <div class="mod-ban ban-gestion"><span class="mod-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="7" rx="1.5"/></svg></span></div>
+        <div class="mod-body"><div class="mod-k">Equipo · Google Sheets</div><h3>Bitácora Ejecutiva</h3><p>Tablero de tareas y asignaciones, notas del equipo, obstáculos y el pulso de avance de cada proyecto y persona.</p><div class="mod-foot"><span class="mod-tag">Google Sheets · Apps Script</span><span class="mod-go">Entrar →</span></div></div>
+      </div>
+      <div class="mod-card" id="cardVentas" data-tags="ventas pulso comercial dashboard margen gastos stock inventario punto de equilibrio google sheets" data-app="ventas">
+        <div class="mod-ban ban-gestion"><span class="mod-ico"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg></span></div>
+        <div class="mod-body"><div class="mod-k">Comercial · Google Sheets</div><h3>Pulso Comercial</h3><p>Dashboard de ventas: ingresos, márgenes, punto de equilibrio, gastos e inventario, comparado con el período anterior.</p><div class="mod-foot"><span class="mod-tag">Google Sheets · Apps Script</span><span class="mod-go">Entrar →</span></div></div>
+      </div>
     </div>
   </section>
   </div>
@@ -386,7 +394,7 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
 /* Inicio: cada tarjeta abre su propia página (un HTML por módulo). */
 const $=id=>document.getElementById(id);
 const norm=s=>String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
-const TARJETAS={cardMartina:"martina",cardContabilidad:"contabilidad",cardAgenteLegal:"agente_legal",cardLegal:"legal",cardTareas:"tareas"};
+const TARJETAS={cardMartina:"martina",cardContabilidad:"contabilidad",cardAgenteLegal:"agente_legal",cardLegal:"legal",cardTareas:"tareas",cardBitacora:"bitacora",cardVentas:"ventas"};
 for(const [card,id] of Object.entries(TARJETAS)){ const m=MA.MODULOS.find(x=>x.id===id); const c=$(card); c.onclick=()=>{ location.href=m.url; }; c.title="Abrir "+m.nombre; }
 function contarModulos(){
   let total=0;

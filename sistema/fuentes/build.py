@@ -13,8 +13,10 @@ V=(datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(hours=5)).str
 URL=os.environ.get('SB_URL',''); ANON=os.environ.get('SB_ANON','')
 AUTH=open('src/comun/ma_auth.html',encoding='utf-8').read()
 
+import json
+GS=open('src/comun/gs_conexion.html',encoding='utf-8').read().replace('__GS_URL__',os.environ.get('GS_URL','')).replace('__GS_CODIGO__',json.dumps(open('src/google/Codigo.gs',encoding='utf-8').read(),ensure_ascii=False).replace('</','<\\/'))
 def final(s):
-    s=s.replace('<!--MA_AUTH-->',AUTH)
+    s=s.replace('<!--MA_AUTH-->',AUTH).replace('<!--GS_CONEXION-->',GS)
     for k,v in LOGOS.items(): s=s.replace(k,v)
     for k in ('MS_CLIENT_ID','MS_TENANT','MS_LINK_PANTERA','MS_LINK_CONTA','MS_LINK_LEGAL'): s=s.replace('__'+k+'__',os.environ.get(k,''))
     return s.replace('__SUPABASE_URL__',URL).replace('__SUPABASE_ANON__',ANON).replace('__VERSION__',V)
@@ -28,6 +30,8 @@ leer=lambda f:open(f,encoding='utf-8').read()
 escribir('index.html',leer('src/inicio.html'))
 escribir('pantera.html',leer('src/pantera.html').replace('__PANTERA_B64__',base64.b64encode(open('reporte_pantera.html','rb').read()).decode()))
 escribir('gerencia.html',leer('src/gerencia.html').replace('__PANTERA_B64__',base64.b64encode(open('reporte_pantera.html','rb').read()).decode()))
+escribir('bitacora.html',leer('src/bitacora.html'))
+escribir('ventas.html',leer('src/ventas.html'))
 escribir('usuarios.html',leer('src/usuarios.html'))
 rep=leer('src/reportes_conta.html')
 for archivo,titulo,carpeta,modulo,conRep in (('contabilidad.html','Dashboard Contabilidad','Contabilidad','contabilidad',True),('dashboard-legal.html','Dashboard de Legal','Legal','legal',True)):
