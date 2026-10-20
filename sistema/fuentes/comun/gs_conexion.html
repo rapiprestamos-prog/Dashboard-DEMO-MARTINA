@@ -65,6 +65,22 @@ window.GS=(function(){
       catch(e){ m.className="gs-msg bad"; m.textContent=e.message; pb.disabled=false; } };
   }
   function avisoDemo(el,salir){ const d=document.createElement("div"); d.className="gs-demo"; d.innerHTML=`<span>👁 <b>Datos de ejemplo</b> (inventados, solo para mostrar cómo funciona). Los cambios no se guardan.</span><button class="gs-b alt" type="button">Conectar la Hoja de Google</button>`; d.querySelector("button").onclick=salir; el.prepend(d); }
-  return {url,llamar,pantalla,avisoDemo,fija:!!FIJA,desconectar:()=>ls.set(K,"")};
+  // id propio para lo nuevo: si Google reintenta, se actualiza la misma fila y nunca se duplica
+  const id=()=>{ try{ return crypto.randomUUID(); }catch(e){ return "id-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10); } };
+  // aviso flotante «Actualizando…»
+  let nAct=0; function actualizando(si){ nAct=Math.max(0,nAct+(si?1:-1)); let d=document.getElementById("gsAct");
+    if(!d){ d=document.createElement("div"); d.id="gsAct"; d.style.cssText="position:fixed;left:18px;bottom:18px;z-index:85;background:#0f2440;color:#fff;border-radius:999px;padding:7px 14px;font:600 12.5px Inter,system-ui,sans-serif;box-shadow:0 6px 18px rgba(15,23,42,.25);display:none"; d.textContent="↻ Actualizando con la Hoja de Google…"; document.body.appendChild(d); }
+    d.style.display=nAct?"block":"none"; }
+  // carga instantánea: muestra lo último que se vio en esta pestaña y lo actualiza por detrás
+  async function conCache(accion,alLlegar){
+    const c=await MA.listo, k="gsc_"+String(c.email||"").toLowerCase()+"_"+accion; let tenia=false;
+    try{ const v=sessionStorage.getItem(k); if(v){ tenia=true; alLlegar(JSON.parse(v),true); } }catch(e){}
+    actualizando(true);
+    try{ const d=await llamar(accion); try{ sessionStorage.setItem(k,JSON.stringify(d)); }catch(e){} alLlegar(d,false); return d; }
+    catch(e){ e.tenia=tenia; throw e; }
+    finally{ actualizando(false); }
+  }
+  function olvidar(){ try{ Object.keys(sessionStorage).filter(k=>k.startsWith("gsc_")).forEach(k=>sessionStorage.removeItem(k)); }catch(e){} }
+  return {url,llamar,pantalla,avisoDemo,fija:!!FIJA,desconectar:()=>ls.set(K,""),id,conCache,actualizando,olvidar};
 })();
 </script>

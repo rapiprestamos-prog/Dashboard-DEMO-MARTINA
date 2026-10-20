@@ -124,11 +124,12 @@ function preparar(r){
   S=(r.stock||[]).map(x=>({p:String(x.Producto||""),c:String(x.Categoria||""),st:num(x.Stock),min:num(x.Stock_minimo),cu:num(x.Costo_unitario),pv:num(x.Precio_venta)})).filter(x=>x.p);
   HOJA=r.hoja||"";
 }
+function alert0(t){ const d=document.createElement("div"); d.style.cssText="position:fixed;right:18px;bottom:18px;background:#b03a32;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;z-index:80"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),6000); }
 async function cargar(){
   if(DEMO){ preparar(ejemplo()); pintar(); return; }
-  $("app").innerHTML=`<div class="card vacio"><span class="spin"></span> Leyendo la Hoja de Google… <span style="display:block;font-size:12px;margin-top:4px">puede tardar unos segundos</span></div>`;
-  try{ preparar(await GS.llamar("ventas.datos")); pintar(); }
-  catch(e){ $("app").innerHTML=`<div class="card vacio"><b>No se pudo leer la Hoja de Google</b>${esc(e.message)}<br><br><button class="btn" id="reint">Reintentar</button></div>`; $("reint").onclick=cargar; }
+  if(!$("app").querySelector(".kpis")) $("app").innerHTML=`<div class="card vacio"><span class="spin"></span> Leyendo la Hoja de Google… <span style="display:block;font-size:12px;margin-top:4px">puede tardar unos segundos</span></div>`;
+  try{ await GS.conCache("ventas.datos",r=>{ preparar(r); pintar(); }); }
+  catch(e){ if(e.tenia){ alert0("No se pudo actualizar: "+e.message+" (se muestra lo último que se vio)"); return; } $("app").innerHTML=`<div class="card vacio"><b>No se pudo leer la Hoja de Google</b>${esc(e.message)}<br><br><button class="btn" id="reint">Reintentar</button></div>`; $("reint").onclick=cargar; }
 }
 
 /* ============================ período ============================ */

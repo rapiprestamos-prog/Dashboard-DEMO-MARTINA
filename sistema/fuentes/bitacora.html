@@ -69,6 +69,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .tc{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 11px;box-shadow:0 1px 2px rgba(15,23,42,.05);cursor:grab;position:relative}
 .tc:hover{border-color:#b9c7da;box-shadow:0 6px 16px rgba(15,23,42,.08)}
 .tc.arr{opacity:.45}
+.tc.pend{opacity:.65;pointer-events:none}
 .tc .top{display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap}
 .pr{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;letter-spacing:.02em}
 .pr.Crítica{background:#fbeceb;color:var(--bad)}.pr.Alta{background:#fdf2e3;color:#a35a00}.pr.Media{background:#e8eef7;color:var(--c1)}.pr.Baja{background:#eef1f4;color:var(--muted)}
@@ -213,8 +214,8 @@ let T=[], N=[], HOJA="", DEMO=false, VISTA="tablero", PER="todo", Q="", F={}, OR
 /* ============================ datos ============================ */
 async function cargar(){
   if(DEMO){ pintar(); return; }
-  try{ const r=await GS.llamar("bitacora.listar"); T=(r.tareas||[]).map(norm); N=r.notas||[]; C=r.comentarios||[]; H=r.historial||[]; HOJA=r.hoja||""; pintar(); }
-  catch(e){ $("app").innerHTML=`<div class="card vacio"><b>No se pudo leer la Hoja de Google</b>${esc(e.message)}<br><br><button class="btn" id="reint">Reintentar</button> ${(await MA.listo).rol==="admin"&&!GS.fija?'<button class="btn" id="recon">Cambiar la URL</button>':""}</div>`;
+  try{ await GS.conCache("bitacora.listar",r=>{ const pend=T.filter(t=>t._pend); T=(r.tareas||[]).map(norm).concat(pend.filter(p=>!(r.tareas||[]).some(t=>t.id===p.id))); N=r.notas||[]; C=r.comentarios||[]; H=r.historial||[]; HOJA=r.hoja||""; pintar(); }); }
+  catch(e){ if(e.tenia){ toast("No se pudo actualizar: "+e.message+" (se muestra lo último que se vio)",true); return; } $("app").innerHTML=`<div class="card vacio"><b>No se pudo leer la Hoja de Google</b>${esc(e.message)}<br><br><button class="btn" id="reint">Reintentar</button> ${(await MA.listo).rol==="admin"&&!GS.fija?'<button class="btn" id="recon">Cambiar la URL</button>':""}</div>`;
     $("reint").onclick=cargar; if($("recon")) $("recon").onclick=()=>{ GS.desconectar(); arrancar(); }; }
 }
 function norm(t){ t.avance=+t.avance||0; t.recurrencia=RECS.includes(t.recurrencia)?t.recurrencia:"No"; t.aprobacion=APRS.includes(t.aprobacion)?t.aprobacion:""; t.prioridad=PRIOS.includes(t.prioridad)?t.prioridad:"Media"; t.estado=ESTADOS.some(e=>e[0]===t.estado)?t.estado:"Pendiente"; ["inicio","limite","cerrado"].forEach(k=>t[k]=t[k]?String(t[k]).slice(0,10):""); return t; }
@@ -226,8 +227,9 @@ async function guardarT(t){
     if(!antes) log("Creó la tarea"); else { if(antes.estado!==t.estado) log("Estado: "+antes.estado+" → "+t.estado); if((antes.aprobacion||"")!==(t.aprobacion||"")&&t.aprobacion) log("Aprobación: "+t.aprobacion); }
     if(t.estado==="Hecha"&&(!antes||antes.estado!=="Hecha")&&t.recurrencia!=="No"){ const s=Object.assign({},t,{id:"d"+Date.now()+"r",estado:"Pendiente",avance:0,cerrado:"",obstaculo:"",impacto:"",aprobacion:t.aprobador?"Pendiente":"",inicio:moverF(t.inicio,t.recurrencia),limite:moverF(t.limite,t.recurrencia)}); T.push(s); toast("🔁 Se creó la próxima: "+fCorta(s.limite)); }
     pintar(); return; }
-  const prev=T.slice(); const i=T.findIndex(x=>x.id===t.id); if(i>=0){ T[i]=t; pintar(); }
-  try{ const r0=await GS.llamar("bitacora.guardarTarea",{tarea:t}); const sig=r0._siguiente; delete r0._siguiente; const r=norm(r0); const j=T.findIndex(x=>x.id===r.id); j>=0?T[j]=r:T.push(r);
+  const prev=T.slice(); if(!t.id){ t.id=GS.id(); T.push(Object.assign({},t,{_pend:true})); pintar(); }   // id propio: nunca se duplica
+  else { const i=T.findIndex(x=>x.id===t.id); if(i>=0){ T[i]=t; pintar(); } }
+  try{ const r0=await GS.llamar("bitacora.guardarTarea",{tarea:Object.assign({},t,{_pend:undefined})}); const sig=r0._siguiente; delete r0._siguiente; const r=norm(r0); const j=T.findIndex(x=>x.id===r.id); j>=0?T[j]=r:T.push(r);
     if(sig){ T.push(norm(sig)); toast("🔁 Se creó la próxima: "+fCorta(sig.limite)); } pintar(); }
   catch(e){ T=prev; pintar(); toast("No se guardó: "+e.message,true); }
 }
@@ -236,7 +238,7 @@ function moverF(f,rec){ if(!f) return ""; const d=new Date(String(f).slice(0,10)
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 async function comentar(tid,txt){ txt=String(txt||"").trim(); if(!txt) return null;
   if(DEMO){ const c={id:"c"+Date.now(),tarea_id:tid,texto:txt,autor:"ejemplo",creado:new Date().toISOString().slice(0,19)}; C.push(c); return c; }
-  try{ const c=await GS.llamar("bitacora.comentar",{tarea_id:tid,texto:txt}); C.push(c); return c; }catch(e){ toast("No se guardó el comentario: "+e.message,true); return null; } }
+  try{ const c=await GS.llamar("bitacora.comentar",{id:GS.id(),tarea_id:tid,texto:txt}); C.push(c); return c; }catch(e){ toast("No se guardó el comentario: "+e.message,true); return null; } }
 async function borrarC(id){ if(!DEMO){ try{ await GS.llamar("bitacora.borrarComentario",{id}); }catch(e){ toast(e.message,true); return false; } } C=C.filter(c=>c.id!==id); return true; }
 async function borrarT(id){ if(DEMO){ T=T.filter(x=>x.id!==id); pintar(); return; }
   try{ await GS.llamar("bitacora.borrarTarea",{id}); T=T.filter(x=>x.id!==id); pintar(); }catch(e){ toast(e.message,true); } }
@@ -297,7 +299,7 @@ function pintar(){
 /* ---------- Tablero ---------- */
 function tarjeta(t){
   const d=t.limite?dias(t.limite):null, abierta=t.estado!=="Hecha";
-  return `<div class="tc${abierta&&d!=null&&d<0?" venc":""}" draggable="true" data-id="${esc(t.id)}">
+  return `<div class="tc${abierta&&d!=null&&d<0?" venc":""}${t._pend?" pend":""}" draggable="true" data-id="${esc(t.id)}">${t._pend?'<div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:4px"><span class="spin" style="width:12px;height:12px"></span>Guardando…</div>':""}
     <div class="mv"><button data-mv="-1" title="Mover a la izquierda">◀</button><button data-mv="1" title="Mover a la derecha">▶</button></div>
     <div class="top"><span class="pr ${t.prioridad}">${t.prioridad}</span>${t.proyecto?`<span class="pj">${esc(t.proyecto)}</span>`:""}</div>
     <h4>${esc(t.titulo)}</h4>

@@ -94,7 +94,7 @@ window.MA=(function(){
     if(!sb) return null;
     const {data:{session}}=await sb.auth.getSession(); if(!session) return null;
     const ult=+ss.getItem(KACT)||0;
-    if(ult&&Date.now()-ult>IDLE){ try{ await sb.auth.signOut(); }catch(e){} ss.setItem(KMSG,"La sesión se cerró por 10 minutos sin actividad."); return null; }
+    if(ult&&Date.now()-ult>IDLE){ try{ await sb.auth.signOut(); }catch(e){} try{ Object.keys(sessionStorage).filter(k=>k.startsWith("gsc_")).forEach(k=>sessionStorage.removeItem(k)); }catch(e){} ss.setItem(KMSG,"La sesión se cerró por 10 minutos sin actividad."); return null; }
     const email=session.user.email.toLowerCase();
     const {data:yo,error}=await sb.from("ma_usuarios").select("rol,modulos,activo").eq("email",email).maybeSingle();
     if(error) return {error:"No se pudo validar tu acceso: "+error.message};
@@ -130,6 +130,7 @@ window.MA=(function(){
   },1000);
   async function salir(msg){
     ctx=null; try{ await sb.auth.signOut(); }catch(e){}
+    try{ Object.keys(sessionStorage).filter(k=>k.startsWith("gsc_")).forEach(k=>sessionStorage.removeItem(k)); }catch(e){}   // datos de la Hoja de Google guardados para carga rápida
     ss.removeItem(KACT); if(msg) ss.setItem(KMSG,msg); else ss.setItem(KMSG,"Sesión cerrada.");
     location.reload();   // la página vuelve a empezar limpia, sin datos en pantalla
   }

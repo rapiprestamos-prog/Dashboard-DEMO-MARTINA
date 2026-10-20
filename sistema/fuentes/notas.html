@@ -116,6 +116,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .ckrow{display:flex;align-items:center;gap:8px;margin-bottom:5px}.ckrow input[type=checkbox]{width:18px;height:18px;cursor:pointer;flex:none}
 .ckrow .inp{flex:1;padding:7px 10px}.ckrow .inp.hecho{text-decoration:line-through;color:var(--muted)}
 .ckx{border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:6px}.ckx:hover{background:#fbeceb;color:var(--bad)}
+.ckrow.pen .inp{min-width:0}.o365{background:#f3f6fb;border:1px solid var(--border);border-radius:12px;padding:10px 12px}
 .ckmas{width:18px;text-align:center;font-weight:800;color:var(--teal);flex:none}
 .addck{display:flex;gap:6px;margin-top:6px}.addck input{flex:1;border:0;border-bottom:1px dashed rgba(15,28,46,.25);background:transparent;font-size:12.5px;padding:4px 2px;outline:none}
 .toast{position:fixed;right:18px;bottom:18px;background:var(--navy-d);color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;z-index:80}
@@ -134,7 +135,7 @@ button,input,select,textarea{font:inherit;color:inherit}
     <div class="k">M&amp;A Capital · Gestión</div>
     <h1>Tablero de <i>Notas</i></h1>
     <div class="sub" id="heroSub">Ideas, acuerdos, pendientes y recordatorios del equipo</div>
-    <div class="acc hidden" id="acc"><button class="hbtn" id="btnHoja">📗 Abrir la hoja</button><button class="hbtn" id="btnXls">⬇ Excel</button><button class="hbtn" id="btnRec" title="Volver a leer la hoja">↻</button><button class="hbtn pri" id="btnNueva">＋ Nueva nota</button></div>
+    <div class="acc hidden" id="acc"><button class="hbtn" id="btnHoja">📗 Abrir la hoja</button><button class="hbtn" id="btnXls">⬇ Excel</button><button class="hbtn" id="btnRec" title="Volver a leer la hoja">↻</button><button class="hbtn" id="btnActa">📋 Acta de reunión</button><button class="hbtn pri" id="btnNueva">＋ Nueva nota</button></div>
   </header>
   <div id="app"><div class="vacio"><span class="spin"></span> Conectando…</div></div>
 </div>
@@ -157,17 +158,17 @@ let RAPIDO="", N=[], TK=[], HOJA="", DEMO=false, YO="", VISTA="columnas", Q="", 
 /* ============================ datos ============================ */
 async function cargar(){
   if(DEMO){ pintar(); return; }
-  try{ const r=await GS.llamar("notas.listar"); N=r.notas||[]; TK=r.tareas||[]; HOJA=r.hoja||""; pintar(); }
-  catch(e){ $("app").innerHTML=`<div class="card vacio"><b>No se pudo leer la Hoja de Google</b>${esc(e.message)}<br><br><button class="btn" id="reint">Reintentar</button> ${(await MA.listo).rol==="admin"&&!GS.fija?'<button class="btn" id="recon">Cambiar la URL</button>':""}</div>`;
+  try{ await GS.conCache("notas.listar",r=>{ const pend=N.filter(x=>x._pend&&!(r.notas||[]).some(y=>y.id===x.id)); N=(r.notas||[]).concat(pend); TK=r.tareas||[]; HOJA=r.hoja||""; pintar(); }); }
+  catch(e){ if(e.tenia){ toast("No se pudo actualizar: "+e.message+" (se muestra lo último que se vio)",true); return; } $("app").innerHTML=`<div class="card vacio"><b>No se pudo leer la Hoja de Google</b>${esc(e.message)}<br><br><button class="btn" id="reint">Reintentar</button> ${(await MA.listo).rol==="admin"&&!GS.fija?'<button class="btn" id="recon">Cambiar la URL</button>':""}</div>`;
     $("reint").onclick=cargar; if($("recon")) $("recon").onclick=()=>{ GS.desconectar(); arrancar(); }; }
 }
 async function guardar(n,silencio){
   n=Object.assign({},n); if(!n.tablero) n.tablero=BASE[0];
   if(DEMO){ if(!n.id){ n.id="n"+Date.now(); n.creado=new Date().toISOString(); n.autor="ejemplo"; } n.actualizado=new Date().toISOString(); const i=N.findIndex(x=>x.id===n.id); i>=0?N[i]=n:N.push(n); pintar(); return true; }
-  const prev=N.slice(), i=N.findIndex(x=>x.id===n.id); let tmp=null;
-  if(i>=0){ N[i]=n; pintar(); }
-  else { tmp="tmp-"+Date.now(); N.push(Object.assign({},n,{id:tmp,_pend:true,autor:YO,creado:new Date().toISOString()})); pintar(); }   // se ve al instante mientras Google guarda
-  try{ const r=await GS.llamar("notas.guardar",{nota:n}); N=N.filter(x=>x.id!==tmp); const j=N.findIndex(x=>x.id===r.id); j>=0?N[j]=r:N.push(r); pintar(); if(!silencio) toast("Nota guardada"); return true; }
+  const prev=N.slice();
+  if(!n.id){ n.id=GS.id(); N.push(Object.assign({},n,{_pend:true,autor:YO,creado:new Date().toISOString()})); pintar(); }   // id propio: se ve al instante y nunca se duplica
+  else { const i=N.findIndex(x=>x.id===n.id); if(i>=0){ N[i]=n; pintar(); } }
+  try{ const r=await GS.llamar("notas.guardar",{nota:Object.assign({},n,{_pend:undefined})}); const j=N.findIndex(x=>x.id===r.id); j>=0?N[j]=r:N.push(r); pintar(); if(!silencio) toast("Nota guardada"); return r; }
   catch(e){ N=prev; pintar(); toast("No se guardó la nota: "+e.message,true); return false; }
 }
 async function borrar(id){
@@ -185,6 +186,7 @@ const tableros=()=>[...new Set(BASE.concat(N.map(n=>n.tablero).filter(Boolean)))
 
 /* ============================ pantalla ============================ */
 function pintar(){
+  { const rt=$("rTxt"); if(rt&&rt.value.trim()) RAPIDO=rt.value; }
   $("acc").classList.remove("hidden"); $("btnHoja").classList.toggle("hidden",DEMO||!HOJA);
   const vs=visibles(), recHoy=N.filter(n=>n.recordar&&dias(n.recordar)<=0).length, prox=N.filter(n=>n.recordar&&dias(n.recordar)>0&&dias(n.recordar)<=7).length;
   const ck=N.reduce((a,n)=>{ const m=String(n.texto||"").match(/^\s*\[( |x|X)\]/gm)||[]; a.t+=m.length; a.h+=m.filter(x=>/x/i.test(x)).length; return a; },{t:0,h:0});
@@ -205,7 +207,7 @@ function pintar(){
     </div>
     <div class="rapida"><textarea id="rTxt" placeholder="✍ Nota rápida… (Enter para guardar · Shift+Enter nueva línea · empieza una línea con [ ] para hacer una casilla)"></textarea>
       <div class="op"><select class="inp" id="rTab" style="padding:7px 9px">${tableros().map(t=>`<option>${esc(t)}</option>`).join("")}</select>
-        ${COLORES.map(c=>`<button class="pt n-${c}" data-rc="${c}" aria-pressed="${COLOR_R===c}" title="${c}"></button>`).join("")}<button class="btn pri sm" id="rOk">Agregar</button><button class="btn sm" id="rLista" title="Nueva nota con casillas">☑ Lista</button></div></div>
+        ${COLORES.map(c=>`<button class="pt n-${c}" data-rc="${c}" aria-pressed="${COLOR_R===c}" title="${c}"></button>`).join("")}<button class="btn pri sm" id="rOk">Agregar</button><button class="btn sm" id="rLista" title="Nueva nota con casillas">☑ Lista</button><button class="btn sm" id="rActa" title="Acta de reunión lista para llenar">📋 Acta</button></div></div>
     <div class="tabs">${[["columnas","🗂 Columnas"],["muro","🧱 Muro"],["agenda","⏰ Recordatorios"],["guia","💡 Guía y prompt"]].map(([k,l])=>`<button class="tab" data-v="${k}" aria-selected="${VISTA===k}">${l}</button>`).join("")}</div>
     <div id="vista"></div>`;
   if(DEMO) GS.avisoDemo($("app"),()=>{ DEMO=false; arrancar(); });
@@ -220,9 +222,9 @@ function pintar(){
   $("q").oninput=e=>{ Q=e.target.value; clearTimeout(pintar.t); pintar.t=setTimeout(()=>{ pintar(); const i=$("q"); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },250); };
   if(RAPIDO){ $("rTxt").value=RAPIDO; }
   const rapida=async()=>{ const t=$("rTxt").value.trim(); if(!t){ $("rTxt").focus(); $("rTxt").placeholder="✍ Primero escribe la nota aquí y luego pulsa Agregar"; toast("Escribe la nota primero",true); return; }
-    const l=t.split("\n"); const tit=l.length>1&&l[0].length<=70?l.shift():""; RAPIDO="";
+    const l=t.split("\n"); const tit=l.length>1&&l[0].length<=70?l.shift():""; RAPIDO=""; $("rTxt").value="";
     const ok=await guardar({titulo:tit,texto:l.join("\n"),color:COLOR_R,tablero:$("rTab").value,fijada:"false"}); if(ok===false){ RAPIDO=t; pintar(); } };
-  $("rOk").onclick=rapida; $("rLista").onclick=()=>editor({tablero:$("rTab").value,color:COLOR_R,titulo:$("rTxt").value.trim().split("\n")[0]},{lista:true}); $("rTxt").onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); rapida(); } };
+  $("rOk").onclick=rapida; $("rActa").onclick=()=>acta(); $("rLista").onclick=()=>editor({tablero:$("rTab").value,color:COLOR_R,titulo:$("rTxt").value.trim().split("\n")[0]},{lista:true}); $("rTxt").onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); rapida(); } };
   ({columnas:vColumnas,muro:vMuro,agenda:vAgenda,guia:vGuia})[VISTA](vs);
   $("heroSub").textContent=`${N.length} notas · ${tableros().length} columnas${recHoy?` · ${recHoy} recordatorio(s) para hoy`:""}${DEMO?" · datos de ejemplo":""}`;
 }
@@ -232,7 +234,7 @@ function cuerpo(n){
   const lineas=String(n.texto||"").split("\n"); let html="", hay=false;
   lineas.forEach((l,i)=>{ const m=l.match(/^\s*\[( |x|X)\]\s?(.*)$/); if(m){ hay=true; const h=/x/i.test(m[1]); html+=`<label class="ck${h?" hecho":""}" data-i="${i}"><input type="checkbox"${h?" checked":""}><span>${esc(m[2])}</span></label>`; } else html+=esc(l)+"\n"; });
   const m=String(n.texto||"").match(/^\s*\[( |x|X)\]/gm)||[], h=m.filter(x=>/x/i.test(x)).length;
-  return `<div class="tx">${html.replace(/\n+$/,"")}</div>${hay?`<div class="pr" title="${h} de ${m.length}"><i style="width:${100*h/m.length}%"></i></div><div class="addck"><input placeholder="＋ agregar casilla (Enter)" data-addck></div>`:""}`;
+  return `<div class="tx">${html.replace(/\n+$/,"")}</div>${hay?`<div class="pr" title="${h} de ${m.length}"><i style="width:${100*h/m.length}%"></i></div>${esActa(n)?"":`<div class="addck"><input placeholder="＋ agregar casilla (Enter)" data-addck></div>`}`:""}`;
 }
 function nota(n){
   const tk=n.tarea_id&&TK.find(t=>t.id===n.tarea_id), r=n.recordar?dias(n.recordar):null;
@@ -283,6 +285,7 @@ function vAgenda(vs){
 
 /* ---------- editor ---------- */
 function editor(n,op){
+  if(n&&esActa(n)) return acta(n);
   n=Object.assign({color:COLOR_R,tablero:BASE[0],fijada:"false"},n||{});
   const bg=document.createElement("div"); bg.className="bg";
   bg.innerHTML=`<div class="dlg"><div class="dlg-h"><h3>${n.id?"Editar nota":"Nueva nota"}</h3><button class="btn sm" data-x>Cerrar</button></div>
@@ -303,7 +306,7 @@ function editor(n,op){
       <label class="f full" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="nPin"${fij(n)?" checked":""}> <span>📌 Fijar arriba</span></label>
       ${n.autor?`<div class="f full ayuda">Creada por ${esc(n.autor)}${n.creado?" el "+esc(fLarga(n.creado)):""}${n.actualizado?" · última edición "+esc(fCorta(n.actualizado)):""}</div>`:""}
     </div>
-    <div class="dlg-f">${n.id?`<button class="btn bad" id="nDel" style="margin-right:auto">Eliminar</button><button class="btn" id="nDup">⧉ Duplicar</button>`:""}<button class="btn" data-x>Cancelar</button><button class="btn pri" id="nOk">Guardar</button></div></div>`;
+    <div class="dlg-f">${n.id?`<button class="btn bad" id="nDel" style="margin-right:auto">Eliminar</button><button class="btn" id="nDup">⧉ Duplicar</button>`:""}<button class="btn" id="nOut" title="Abre un correo nuevo en Outlook con esta nota">✉ Outlook</button>${n.tarea_id?"":`<button class="btn" id="nTarea" title="Crea una tarea en la Bitácora con esta nota y las deja ligadas">➜ Crear tarea</button>`}<button class="btn" data-x>Cancelar</button><button class="btn pri" id="nOk">Guardar</button></div></div>`;
   document.body.appendChild(bg); const g=id=>bg.querySelector("#"+id), cerrar=()=>bg.remove();
   bg.querySelectorAll("[data-x]").forEach(b=>b.onclick=cerrar); bg.onclick=e=>{ if(e.target===bg) cerrar(); };
   let color=n.color; bg.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{ color=b.dataset.c; bg.querySelectorAll("[data-c]").forEach(x=>x.setAttribute("aria-pressed",x===b)); });
@@ -311,6 +314,10 @@ function editor(n,op){
   const leer=()=>Object.assign({},n,{titulo:g("nTit").value.trim(),texto:textoFinal(),color,tablero:g("nTab").value.trim()||BASE[0],etiquetas:etqs({etiquetas:g("nEtq").value}).join(", "),recordar:g("nRec").value,tarea_id:g("nTar").value,fijada:g("nPin").checked?"true":"false"});
   g("nOk").onclick=()=>{ const o=leer(); if(!o.titulo&&!o.texto.trim()){ (modo==="lista"?g("ckNuevo"):g("nTxt")).focus(); return; } cerrar(); guardar(o); };
   if(g("nDel")) g("nDel").onclick=()=>{ if(confirm("¿Eliminar esta nota?")){ cerrar(); borrar(n.id); } };
+  g("nOut").onclick=()=>{ const o=leer(); outlook([],o.titulo||"Nota",(o.titulo?o.titulo+"\n\n":"")+o.texto); };
+  if(g("nTarea")) g("nTarea").onclick=async()=>{ const o=leer(); if(!o.titulo&&!o.texto.trim()) return; const b=g("nTarea"); b.disabled=true; b.textContent="Creando…";
+    const tid=await crearTarea({titulo:o.titulo||o.texto.trim().split("\n")[0].replace(/^\s*(\[( |x|X)\]\s?|•\s?|\d+[.)]\s?)/,"").slice(0,120),descripcion:o.texto,etiquetas:o.etiquetas,limite:o.recordar||""});
+    if(!tid){ b.disabled=false; b.textContent="➜ Crear tarea"; return; } cerrar(); guardar(Object.assign(o,{tarea_id:tid}),true); toast("✓ Tarea creada en la Bitácora y ligada a la nota"); };
   if(g("nDup")) g("nDup").onclick=()=>{ const o=leer(); ["id","creado","autor","actualizado"].forEach(k=>delete o[k]); o.titulo=(o.titulo||"Nota")+" (copia)"; cerrar(); guardar(o); };
   // ---- modo texto / lista con casillas ----
   const ta=g("nTxt"), PRE=/^\s*(\[( |x|X)\]\s?|•\s?|\d+[.)]\s?)/, CK=/^\s*\[( |x|X)\]\s?(.*)$/;
@@ -350,6 +357,128 @@ function editor(n,op){
   (n.id?g("nTxt"):g("nTit")).focus();
 }
 
+/* ---------- Office 365: Outlook, Teams y Word ---------- */
+const correos=s=>String(s||"").split(/[,;\s]+/).map(x=>x.trim()).filter(x=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+function copiar(t){ try{ navigator.clipboard.writeText(t); }catch(e){} }
+function outlook(para,asunto,cuerpo){
+  // Outlook de Office 365 en el navegador; el texto completo también queda copiado por si es muy largo
+  copiar(cuerpo); const max=1600, b=cuerpo.length>max?cuerpo.slice(0,max)+"\n…(texto completo copiado: pégalo con Ctrl+V)":cuerpo;
+  window.open("https://outlook.office.com/mail/deeplink/compose?to="+encodeURIComponent(para.join(";"))+"&subject="+encodeURIComponent(asunto)+"&body="+encodeURIComponent(b),"_blank");
+  toast("Se abrió Outlook · el texto también quedó copiado");
+}
+function agendaOutlook(para,asunto,ini,fin,cuerpo){
+  window.open("https://outlook.office.com/calendar/deeplink/compose?subject="+encodeURIComponent(asunto)+"&startdt="+encodeURIComponent(ini)+"&enddt="+encodeURIComponent(fin)+"&to="+encodeURIComponent(para.join(";"))+"&body="+encodeURIComponent(cuerpo.slice(0,1500)),"_blank"); }
+function agendaTeams(para,asunto,ini,fin,cuerpo){
+  window.open("https://teams.microsoft.com/l/meeting/new?subject="+encodeURIComponent(asunto)+"&startTime="+encodeURIComponent(ini)+"&endTime="+encodeURIComponent(fin)+"&attendees="+encodeURIComponent(para.join(","))+"&content="+encodeURIComponent(cuerpo.slice(0,1200)),"_blank"); }
+function word(nombre,html){
+  const doc=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#0f1c2e}h1{font-family:Georgia,serif;color:#1b3a5c;font-size:20pt;margin:0 0 4pt}h2{color:#1b3a5c;font-size:12.5pt;border-bottom:1pt solid #e3c27a;padding-bottom:2pt;margin:14pt 0 6pt}td,th{border:1pt solid #cfd8e3;padding:4pt 6pt;font-size:10.5pt}th{background:#1b3a5c;color:#fff;text-align:left}table{border-collapse:collapse;width:100%}.k{color:#b98b2f;font-weight:bold;letter-spacing:1pt;font-size:9pt}</style></head><body>${html}</body></html>`;
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\ufeff"+doc],{type:"application/msword"})); a.download=nombre.replace(/\//g,"-").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\w .-]+/g," - ").replace(/\s+/g," ").trim()+".doc"; document.body.appendChild(a); a.click(); a.remove();
+  toast("Se descargó el Word · ábrelo y guárdalo en OneDrive o SharePoint si quieres"); }
+
+/* ---------- Bitácora: crear tarea desde una nota o un acta ---------- */
+async function crearTarea(o){
+  const t=Object.assign({id:GS.id(),estado:"Pendiente",prioridad:"Media",avance:0,responsable:"",proyecto:"",inicio:new Date().toISOString().slice(0,10)},o);
+  if(DEMO){ TK.push({id:t.id,titulo:t.titulo}); return t.id; }
+  try{ const r=await GS.llamar("notas.crearTarea",{tarea:t}); TK.push({id:r.id,titulo:r.titulo}); return r.id; }
+  catch(e){ toast("No se creó la tarea: "+e.message,true); return null; }
+}
+
+/* ---------- Acta de reunión ---------- */
+const ACTA={fecha:"📅 Fecha:",lugar:"📍 Lugar:",asis:"👥 Asistentes:",temas:"🗒 Temas:",acu:"✅ Acuerdos:",pen:"☐ Pendientes:",prox:"➡ Próxima reunión:"};
+const esActa=n=>etqs(n).includes("acta")&&String(n.texto||"").includes(ACTA.asis);
+const fISO=d=>d?d.split("-").reverse().join("/"):"";
+const aISO=t=>{ const m=String(t||"").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m?`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`:""; };
+function actaTexto(a){
+  const L=[`${ACTA.fecha} ${fISO(a.fecha)}${a.hora?" · "+a.hora:""}`,`${ACTA.lugar} ${a.lugar||""}`,`${ACTA.asis} ${a.asis||""}`,ACTA.temas];
+  String(a.temas||"").split("\n").filter(x=>x.trim()).forEach(x=>L.push("• "+x.replace(/^•\s?/,"").trim()));
+  L.push(ACTA.acu); a.acu.filter(x=>x.trim()).forEach(x=>L.push("• "+x.trim()));
+  L.push(ACTA.pen); a.pen.filter(x=>x.t.trim()).forEach(x=>L.push(`${x.h?"[x]":"[ ]"} ${x.t.trim()}${x.r?" — "+x.r.trim():""}${x.f?" — "+fISO(x.f):""}${x.bit?" (en Bitácora)":""}`));
+  L.push(`${ACTA.prox} ${a.prox?fISO(a.prox.slice(0,10))+(a.prox.length>10?" "+a.prox.slice(11,16):""):""}`);
+  return L.join("\n");
+}
+function actaLeer(n){
+  const a={titulo:String(n.titulo||"").replace(/^Acta:\s*/,"").replace(/\s·\s\d{1,2}\/\d{1,2}\/\d{4}$/,""),fecha:"",hora:"",lugar:"",asis:"",temas:"",acu:[],pen:[],prox:""};
+  let sec=""; String(n.texto||"").split("\n").forEach(l=>{
+    if(l.startsWith(ACTA.fecha)){ const v=l.slice(ACTA.fecha.length).trim(); a.fecha=aISO(v); const h=v.match(/(\d{1,2}:\d{2})/); a.hora=h?h[1].padStart(5,"0"):""; sec=""; }
+    else if(l.startsWith(ACTA.lugar)){ a.lugar=l.slice(ACTA.lugar.length).trim(); sec=""; }
+    else if(l.startsWith(ACTA.asis)){ a.asis=l.slice(ACTA.asis.length).trim(); sec=""; }
+    else if(l.startsWith(ACTA.temas)) sec="temas"; else if(l.startsWith(ACTA.acu)) sec="acu"; else if(l.startsWith(ACTA.pen)) sec="pen";
+    else if(l.startsWith(ACTA.prox)){ const v=l.slice(ACTA.prox.length).trim(), d=aISO(v), h=v.match(/(\d{1,2}:\d{2})/); a.prox=d?d+(h?"T"+h[1].padStart(5,"0"):"T09:00"):""; sec=""; }
+    else if(sec==="temas"&&l.trim()) a.temas+=(a.temas?"\n":"")+l.replace(/^•\s?/,"").trim();
+    else if(sec==="acu"&&l.trim()) a.acu.push(l.replace(/^•\s?/,"").trim());
+    else if(sec==="pen"&&l.trim()){ const m=l.match(/^\s*\[( |x|X)\]\s?(.*)$/); let t=(m?m[2]:l).trim(); const bit=/\(en Bitácora\)\s*$/.test(t); t=t.replace(/\s*\(en Bitácora\)\s*$/,"");
+      const p=t.split(" — "); const f=p.length>2?aISO(p[2]):(p.length===2&&aISO(p[1])?aISO(p[1]):""); a.pen.push({h:!!(m&&/x/i.test(m[1])),t:p[0],r:p.length>1&&!(p.length===2&&f)?p[1]:"",f,bit}); } });
+  return a;
+}
+function acta(n){
+  n=Object.assign({color:"azul",tablero:"Actas",fijada:"false",etiquetas:"acta"},n||{});
+  const hoy0=hoy(), a=n.id?actaLeer(n):{titulo:"",fecha:hoy0,hora:"",lugar:"",asis:"",temas:"",acu:[],pen:[],prox:""};
+  const gente=[...new Set(N.flatMap(x=>correos(esActa(x)?actaLeer(x).asis:"")))];
+  const bg=document.createElement("div"); bg.className="bg";
+  bg.innerHTML=`<div class="dlg" style="max-width:760px"><div class="dlg-h"><h3>📋 ${n.id?"Acta de reunión":"Nueva acta de reunión"}</h3><button class="btn sm" data-x>Cerrar</button></div>
+    <div class="dlg-b">
+      <label class="f full"><span>Reunión</span><input class="inp" id="aTit" value="${esc(a.titulo)}" placeholder="Ej.: Comité de inversiones, Seguimiento Fondo II…"></label>
+      <label class="f"><span>📅 Fecha</span><input class="inp" type="date" id="aFec" value="${esc(a.fecha)}"></label>
+      <label class="f"><span>🕘 Hora</span><input class="inp" type="time" id="aHor" value="${esc(a.hora)}"></label>
+      <label class="f full"><span>📍 Lugar o enlace de Teams</span><input class="inp" id="aLug" value="${esc(a.lugar)}"></label>
+      <label class="f full"><span>👥 Asistentes (correos de Office 365 o nombres, separados por coma)</span><input class="inp" id="aAsi" list="lGente" value="${esc(a.asis)}" placeholder="nombre@myacapital.com, …"><datalist id="lGente">${gente.map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label>
+      <label class="f full"><span>🗒 Temas tratados (uno por línea)</span><textarea class="inp" id="aTem" style="min-height:70px">${esc(a.temas)}</textarea></label>
+      <div class="f full"><span>✅ Acuerdos</span><div id="aAcu"></div><div class="ckrow nuevo"><span class="ckmas">＋</span><input class="inp" id="aAcuN" placeholder="Escribe un acuerdo y pulsa Enter"></div></div>
+      <div class="f full"><span>☐ Pendientes (quién y para cuándo)</span><div id="aPen"></div><div class="ckrow nuevo"><span class="ckmas">＋</span><input class="inp" id="aPenN" placeholder="Escribe un pendiente y pulsa Enter"></div></div>
+      <label class="f"><span>➡ Próxima reunión</span><input class="inp" type="datetime-local" id="aPro" value="${esc(a.prox)}"></label>
+      <label class="f"><span>Columna</span><input class="inp" id="aTab" list="lTab2" value="${esc(n.tablero||"Actas")}"><datalist id="lTab2">${tableros().concat(["Actas"]).filter((x,i,v)=>v.indexOf(x)===i).map(t=>`<option value="${esc(t)}">`).join("")}</datalist></label>
+      <div class="f full o365"><span>Office 365</span><div class="tbn">
+        <button type="button" class="btn sm" id="aOut" title="Abre un correo en Outlook para los asistentes con el acta">✉ Enviar por Outlook</button>
+        <button type="button" class="btn sm" id="aCal" title="Crea la próxima reunión en el calendario de Outlook">📅 Próxima en Outlook</button>
+        <button type="button" class="btn sm" id="aTea" title="Crea la próxima reunión de Teams">👥 Próxima en Teams</button>
+        <button type="button" class="btn sm" id="aDoc" title="Descarga el acta en Word">⬇ Word</button>
+        <button type="button" class="btn sm" id="aBit" title="Crea en la Bitácora una tarea por cada pendiente">➜ Pendientes a la Bitácora</button></div>
+        <span class="ayuda">Se abre Outlook o Teams de tu cuenta de Office 365 con todo listo; tú lo revisas y lo envías. Solo reciben el correo los asistentes escritos con su correo.</span></div>
+    </div>
+    <div class="dlg-f">${n.id?`<button class="btn bad" id="aDel" style="margin-right:auto">Eliminar</button>`:""}<button class="btn" data-x>Cancelar</button><button class="btn pri" id="aOk">Guardar acta</button></div></div>`;
+  document.body.appendChild(bg); const g=id=>bg.querySelector("#"+id), cerrar=()=>bg.remove();
+  bg.querySelectorAll("[data-x]").forEach(b=>b.onclick=cerrar); bg.onclick=e=>{ if(e.target===bg) cerrar(); };
+  let acu=a.acu.slice(), pen=a.pen.map(x=>Object.assign({},x));
+  const nombres=[...new Set(correos(g("aAsi").value).concat(String(g("aAsi").value).split(",").map(x=>x.trim()).filter(Boolean)))];
+  const pAcu=f=>{ g("aAcu").innerHTML=acu.map((x,i)=>`<div class="ckrow"><span class="ckmas">•</span><input class="inp" data-ai="${i}" value="${esc(x)}"><button type="button" class="ckx" data-aq="${i}">✕</button></div>`).join("");
+    g("aAcu").querySelectorAll("[data-ai]").forEach(inp=>{ inp.oninput=()=>acu[inp.dataset.ai]=inp.value; inp.onkeydown=e=>{ const i=+inp.dataset.ai; if(e.key==="Enter"){ e.preventDefault(); acu.splice(i+1,0,""); pAcu(i+1); } else if(e.key==="Backspace"&&!inp.value){ e.preventDefault(); acu.splice(i,1); pAcu(); g("aAcuN").focus(); } }; });
+    g("aAcu").querySelectorAll("[data-aq]").forEach(b=>b.onclick=()=>{ acu.splice(+b.dataset.aq,1); pAcu(); });
+    if(f!=null){ const x=g("aAcu").querySelector(`[data-ai="${f}"]`); if(x) x.focus(); } };
+  const pPen=f=>{ const asis=String(g("aAsi").value).split(",").map(x=>x.trim()).filter(Boolean);
+    g("aPen").innerHTML=pen.map((x,i)=>`<div class="ckrow pen"><input type="checkbox" data-ph="${i}"${x.h?" checked":""}><input class="inp${x.h?" hecho":""}" data-pt="${i}" value="${esc(x.t)}" placeholder="Pendiente"><input class="inp" data-pr="${i}" list="lAsis" value="${esc(x.r||"")}" placeholder="Responsable" style="max-width:170px"><input class="inp" type="date" data-pf="${i}" value="${esc(x.f||"")}" style="max-width:150px">${x.bit?'<span title="Ya está en la Bitácora" style="font-size:12px">🗂</span>':""}<button type="button" class="ckx" data-pq="${i}">✕</button></div>`).join("")+`<datalist id="lAsis">${asis.map(x=>`<option value="${esc(x)}">`).join("")}</datalist>`;
+    g("aPen").querySelectorAll("[data-ph]").forEach(c=>c.onchange=()=>{ pen[c.dataset.ph].h=c.checked; pPen(); });
+    g("aPen").querySelectorAll("[data-pt]").forEach(inp=>{ inp.oninput=()=>pen[inp.dataset.pt].t=inp.value; inp.onkeydown=e=>{ const i=+inp.dataset.pt; if(e.key==="Enter"){ e.preventDefault(); pen.splice(i+1,0,{h:false,t:"",r:"",f:""}); pPen(i+1); } else if(e.key==="Backspace"&&!inp.value){ e.preventDefault(); pen.splice(i,1); pPen(); g("aPenN").focus(); } }; });
+    g("aPen").querySelectorAll("[data-pr]").forEach(inp=>inp.oninput=()=>pen[inp.dataset.pr].r=inp.value);
+    g("aPen").querySelectorAll("[data-pf]").forEach(inp=>inp.onchange=()=>pen[inp.dataset.pf].f=inp.value);
+    g("aPen").querySelectorAll("[data-pq]").forEach(b=>b.onclick=()=>{ pen.splice(+b.dataset.pq,1); pPen(); });
+    if(f!=null){ const x=g("aPen").querySelector(`[data-pt="${f}"]`); if(x) x.focus(); } };
+  pAcu(); pPen();
+  g("aAcuN").onkeydown=e=>{ if(e.key!=="Enter") return; e.preventDefault(); const v=g("aAcuN").value.trim(); if(!v) return; acu.push(v); g("aAcuN").value=""; pAcu(); g("aAcuN").focus(); };
+  g("aPenN").onkeydown=e=>{ if(e.key!=="Enter") return; e.preventDefault(); const v=g("aPenN").value.trim(); if(!v) return; pen.push({h:false,t:v,r:"",f:""}); g("aPenN").value=""; pPen(); g("aPenN").focus(); };
+  g("aAsi").onchange=()=>pPen();
+  const datos=()=>{ const pa=g("aAcuN").value.trim(), pp=g("aPenN").value.trim(); if(pa){ acu.push(pa); g("aAcuN").value=""; pAcu(); } if(pp){ pen.push({h:false,t:pp,r:"",f:""}); g("aPenN").value=""; pPen(); }
+    return {titulo:g("aTit").value.trim(),fecha:g("aFec").value,hora:g("aHor").value,lugar:g("aLug").value.trim(),asis:g("aAsi").value.trim(),temas:g("aTem").value,acu,pen,prox:g("aPro").value}; };
+  const nota=()=>{ const d=datos(); return Object.assign({},n,{titulo:"Acta: "+(d.titulo||"Reunión")+(d.fecha?" · "+fISO(d.fecha):""),texto:actaTexto(d),tablero:g("aTab").value.trim()||"Actas",etiquetas:[...new Set(["acta"].concat(etqs(n)))].join(", "),recordar:d.prox?d.prox.slice(0,10):(n.recordar||"")}); };
+  const asunto=d=>"Acta: "+(d.titulo||"Reunión")+(d.fecha?" · "+fISO(d.fecha):"");
+  g("aOk").onclick=()=>{ const o=nota(); cerrar(); guardar(o); };
+  if(g("aDel")) g("aDel").onclick=()=>{ if(confirm("¿Eliminar esta acta?")){ cerrar(); borrar(n.id); } };
+  g("aOut").onclick=()=>{ const d=datos(); outlook(correos(d.asis),asunto(d),actaTexto(d).replace(/\[ \] /g,"☐ ").replace(/\[x\] /gi,"☑ ")); };
+  const proxIni=d=>{ if(!d.prox){ toast("Pon la fecha y hora de la próxima reunión",true); g("aPro").focus(); return null; } const i=new Date(d.prox); return [i.toISOString(),new Date(i.getTime()+3600e3).toISOString()]; };
+  g("aCal").onclick=()=>{ const d=datos(), r=proxIni(d); if(r) agendaOutlook(correos(d.asis),"Seguimiento: "+(d.titulo||"Reunión"),r[0],r[1],"Pendientes de la reunión del "+fISO(d.fecha)+":\n"+d.pen.filter(x=>!x.h).map(x=>"• "+x.t+(x.r?" — "+x.r:"")).join("\n")); };
+  g("aTea").onclick=()=>{ const d=datos(), r=proxIni(d); if(r) agendaTeams(correos(d.asis),"Seguimiento: "+(d.titulo||"Reunión"),r[0],r[1],"Pendientes: "+d.pen.filter(x=>!x.h).map(x=>x.t).join("; ")); };
+  g("aDoc").onclick=()=>{ const d=datos(), li=a=>a.length?`<ul>${a.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:"<p>—</p>";
+    word(asunto(d),`<div class="k">M&amp;A CAPITAL · ACTA DE REUNIÓN</div><h1>${esc(d.titulo||"Reunión")}</h1>
+      <table><tr><th style="width:25%">Fecha</th><td>${esc(fISO(d.fecha))}${d.hora?" · "+esc(d.hora):""}</td></tr><tr><th>Lugar</th><td>${esc(d.lugar)}</td></tr><tr><th>Asistentes</th><td>${esc(d.asis)}</td></tr></table>
+      <h2>Temas tratados</h2>${li(String(d.temas).split("\n").filter(x=>x.trim()))}<h2>Acuerdos</h2>${li(d.acu.filter(x=>x.trim()))}
+      <h2>Pendientes</h2>${d.pen.filter(x=>x.t.trim()).length?`<table><tr><th>Estado</th><th>Pendiente</th><th>Responsable</th><th>Fecha</th></tr>${d.pen.filter(x=>x.t.trim()).map(x=>`<tr><td>${x.h?"☑ Hecho":"☐"}</td><td>${esc(x.t)}</td><td>${esc(x.r||"")}</td><td>${esc(fISO(x.f||""))}</td></tr>`).join("")}</table>`:"<p>—</p>"}
+      <h2>Próxima reunión</h2><p>${d.prox?esc(fISO(d.prox.slice(0,10))+" "+d.prox.slice(11,16)):"—"}</p>`); };
+  g("aBit").onclick=async()=>{ const d=datos(), lista=d.pen.filter(x=>x.t.trim()&&!x.h&&!x.bit); if(!lista.length){ toast("No hay pendientes nuevos para pasar a la Bitácora",true); return; }
+    const b=g("aBit"); b.disabled=true; let k=0;
+    for(const x of lista){ b.textContent=`Creando ${++k} de ${lista.length}…`; const id=await crearTarea({titulo:x.t.trim(),responsable:x.r||"",limite:x.f||"",proyecto:d.titulo||"",descripcion:"De la reunión «"+(d.titulo||"Reunión")+"» del "+fISO(d.fecha)+(x.r?". Responsable: "+x.r:""),etiquetas:"acta"}); if(id) x.bit=true; }
+    b.disabled=false; b.textContent="➜ Pendientes a la Bitácora"; pPen(); const o=nota(); guardar(o,true); n=o; toast(`✓ ${lista.filter(x=>x.bit).length} tarea(s) creadas en la Bitácora`); };
+  g(n.id?"aTem":"aTit").focus();
+}
+
 /* ---------- guía ---------- */
 const PROMPT=`Actúa como desarrollador senior de Google Apps Script y diseñador de producto.
 Quiero un "Tablero de Notas" para el equipo de M&A Capital, conectado a la misma Hoja de cálculo de Google que la Bitácora Ejecutiva.
@@ -366,7 +495,9 @@ PÁGINA (HTML + JS, estilo M&A: azul marino y dorado, notas tipo post-it):
 - Nota rápida arriba: Enter guarda, la primera línea corta se usa como título, se elige columna y color.
 - Vistas: Columnas (arrastrar notas entre columnas, crear columnas nuevas), Muro (todas como un corcho), Recordatorios (atrasados, hoy, próximos 7 días, más adelante).
 - Casillas: líneas que empiezan con [ ] se vuelven casillas que se marcan con un clic y muestran barra de avance.
-- Fijar, colores, etiquetas clicables, ligar a una tarea, duplicar, búsqueda, filtros por color, "mías" y fijadas.
+- Fijar, colores, etiquetas clicables, ligar a una tarea, convertir en tarea (notas.crearTarea), duplicar, búsqueda, filtros por color, "mías" y fijadas.
+- Acta de reunión: formulario con fecha, hora, lugar/Teams, asistentes, temas, acuerdos y pendientes (responsable y fecha); se guarda como nota en la columna Actas. Botones Office 365: correo en Outlook (outlook.office.com/mail/deeplink/compose), próxima reunión en el calendario de Outlook o en Teams, descarga en Word y pendientes como tareas de la Bitácora.
+- Lo nuevo lleva un id creado en la página: si Google reintenta el pedido, se actualiza la misma fila y nunca se duplica.
 - Indicadores: total, fijadas, recordatorios de hoy, % de casillas hechas, ligadas a tareas. Exportar a Excel.
 - Nunca inventar datos: si la hoja está vacía, mostrarlo vacío.`;
 function vGuia(){
@@ -378,7 +509,9 @@ function vGuia(){
         <li><b>Columnas:</b> Ideas, Por hacer, Acuerdos, Recordatorios… y las que crees. Arrastra las notas de una a otra.</li>
         <li><b>Casillas:</b> empieza una línea con <b>[ ]</b> y se vuelve una casilla; se marca con un clic y la nota muestra su avance.</li>
         <li><b>Recordatorios:</b> pon una fecha y la nota aparece en «Recordatorios»; con el correo de cada mañana activado, le llega al autor ese día.</li>
-        <li><b>Ligada a tareas:</b> una nota puede ir pegada a una tarea de la Bitácora Ejecutiva.</li></ul>
+        <li><b>Ligada a tareas:</b> una nota puede ir pegada a una tarea de la Bitácora Ejecutiva, o convertirse en tarea con <b>➜ Crear tarea</b>.</li>
+        <li><b>📋 Acta de reunión:</b> formulario listo (fecha, lugar o Teams, asistentes, temas, acuerdos y pendientes con responsable y fecha). Con Office 365: <b>✉ Enviar por Outlook</b> a los asistentes, <b>📅 Próxima en Outlook</b> o <b>👥 en Teams</b>, <b>⬇ Word</b> y <b>➜ Pendientes a la Bitácora</b>.</li>
+        <li><b>Carga instantánea:</b> al volver a la página se ve al momento lo último y se actualiza solo por detrás.</li></ul>
       <h3>Cómo hacerlo funcionar</h3>
       <ol><li>Usa la misma Hoja de Google y el mismo Apps Script de la Bitácora Ejecutiva (ya incluye las notas).</li>
         <li>Si cambiaste el código, en Apps Script: Implementar › Gestionar implementaciones › editar › Versión nueva.</li>
@@ -405,6 +538,7 @@ function ejemplo(){
 
 /* ============================ arranque ============================ */
 $("btnNueva").onclick=()=>editor({});
+$("btnActa").onclick=()=>acta();
 $("btnRec").onclick=()=>cargar();
 $("btnHoja").onclick=()=>{ if(HOJA) window.open(HOJA,"_blank"); };
 $("btnXls").onclick=()=>{ const ws=XLSX.utils.json_to_sheet(ordenar(visibles()).map(n=>({Columna:n.tablero||"",Título:n.titulo||"",Nota:n.texto||"",Color:n.color||"",Etiquetas:n.etiquetas||"",Recordar:n.recordar||"",Fijada:fij(n)?"Sí":"",Tarea:(TK.find(t=>t.id===n.tarea_id)||{}).titulo||"",Autor:n.autor||"",Creada:String(n.creado||"").slice(0,10)})));
