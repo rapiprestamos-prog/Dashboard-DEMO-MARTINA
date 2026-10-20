@@ -315,12 +315,13 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .utop{display:flex;align-items:center;gap:10px;margin-bottom:8px;color:var(--text-2);font-size:12.5px}
 .upage>#usrPanel{flex:1;min-height:0}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <!--MA_AUTH-->
 <script>MA.iniciar({soloAdmin:true,titulo:"Usuarios y permisos"});</script>
 <div class="upage">
-  <div class="utop"><button class="btn sm" id="btnUsrRef">↻ Actualizar</button><span>Quién entra a cada dashboard. Cada persona tiene un rol y los módulos marcados.</span></div>
+  <div class="utop"><button class="btn sm" id="btnUsrRef">↻ Actualizar</button><button class="btn sm" id="btnRespaldo" title="Descarga todo lo guardado en Supabase: Excel para consultar y SQL para restaurar">⬇ Respaldo de Supabase</button><span>Quién entra a cada dashboard. Cada persona tiene un rol y los módulos marcados.</span></div>
   <div id="bannerBox"></div>
   <div id="usrPanel" class="adm"><div class="panel">
     <form class="newuser" id="formNuevo" autocomplete="off">
@@ -453,6 +454,42 @@ $("formNuevo").onsubmit=async e=>{
   await cargarUsuarios();
 };
 $("btnUsrRef").onclick=cargarUsuarios;
+/* ---------- Respaldo de Supabase (solo administradora) ----------
+   Lee todas las tablas con la sesión de la administradora (la seguridad le deja ver todo) y descarga:
+   · un Excel con una hoja por tabla, para consultar;
+   · un .sql con INSERT para restaurar en Supabase › SQL Editor (después de correr BASE_DE_DATOS_FINAL.sql).
+   No incluye contraseñas: esas viven en la autenticación de Supabase y nunca se pueden exportar. */
+const TABLAS_SB=["ma_usuarios","ta_carpetas","ta_tareas","ta_avances","ta_comentarios","ta_historial","lg_casos","lg_checklists","lg_resultados"];
+const CON_IDENTIDAD=["ta_carpetas","ta_tareas","ta_avances","ta_comentarios","ta_historial","lg_resultados"];
+const ARREGLOS_TXT={ma_usuarios:["modulos"]};
+async function leerTabla(t){ const filas=[]; for(let i=0;;i+=1000){ const {data,error}=await MA.sb.from(t).select("*").range(i,i+999); if(error) throw new Error(t+": "+error.message); filas.push(...data); if(data.length<1000) break; } return filas; }
+async function listarArchivos(){ const out=[]; try{ const {data:carp}=await MA.sb.storage.from("tareas").list("",{limit:1000});
+  for(const c of carp||[]){ const {data:arch}=await MA.sb.storage.from("tareas").list(c.name,{limit:1000}); (arch||[]).forEach(a=>out.push({carpeta_tarea:c.name,archivo:a.name,bytes:a.metadata&&a.metadata.size||"",creado:a.created_at||""})); } }catch(e){} return out; }
+const sqlVal=(t,c,v)=>{ if(v===null||v===undefined) return "NULL"; if(typeof v==="boolean"||typeof v==="number") return String(v);
+  if(Array.isArray(v)&&(ARREGLOS_TXT[t]||[]).includes(c)) return "'{"+v.map(x=>'"'+String(x).replace(/\\/g,"\\\\").replace(/"/g,'\\"')+'"').join(",")+"}'";
+  if(typeof v==="object") return "'"+JSON.stringify(v).replace(/'/g,"''")+"'";
+  return "'"+String(v).replace(/'/g,"''")+"'"; };
+$("btnRespaldo").onclick=async()=>{ const b=$("btnRespaldo"), txt=b.textContent; b.disabled=true;
+  try{
+    const ahora=new Date(), sello=(d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")+"_"+String(d.getHours()).padStart(2,"0")+"-"+String(d.getMinutes()).padStart(2,"0"))(ahora), datos={}, resumen=[];
+    for(const t of TABLAS_SB){ b.textContent="Leyendo "+t+"…"; try{ datos[t]=await leerTabla(t); resumen.push({Tabla:t,Filas:datos[t].length,Nota:""}); }catch(e){ datos[t]=[]; resumen.push({Tabla:t,Filas:0,Nota:"No se pudo leer: "+e.message}); } }
+    b.textContent="Listando archivos…"; const archivos=await listarArchivos();
+    // Excel
+    const wb=XLSX.utils.book_new(); const plano=v=>v!==null&&typeof v==="object"?JSON.stringify(v):v;
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{Tabla:"Respaldo de Supabase — M&A Capital",Filas:"",Nota:"Generado el "+ahora.toLocaleString("es-PA")+" por "+(CTX&&CTX.email||"")}].concat(resumen)),"Resumen");
+    TABLAS_SB.forEach(t=>XLSX.utils.book_append_sheet(wb,datos[t].length?XLSX.utils.json_to_sheet(datos[t].map(f=>Object.fromEntries(Object.entries(f).map(([k,v])=>[k,plano(v)])))):XLSX.utils.aoa_to_sheet([["(sin filas)"]]),t.slice(0,31)));
+    XLSX.utils.book_append_sheet(wb,archivos.length?XLSX.utils.json_to_sheet(archivos):XLSX.utils.aoa_to_sheet([["(sin archivos)"]]),"Archivos de avances");
+    XLSX.writeFile(wb,"Respaldo_Supabase_MA_"+sello+".xlsx");
+    // SQL para restaurar
+    const L=["-- Respaldo de Supabase — M&A Capital · "+ahora.toLocaleString("es-PA"),"-- Restaurar: Supabase › SQL Editor. Primero correr BASE_DE_DATOS_FINAL.sql y después este archivo.","-- Las cuentas (correo y contraseña) se crean de nuevo en Authentication o desde el botón Usuarios: las contraseñas no se exportan.","-- Si la línea siguiente da error de permiso, bórrala: solo se agregarían líneas extra de historial.","set session_replication_role = replica;","begin;"];
+    TABLAS_SB.forEach(t=>{ const f=datos[t]; if(!f.length) return; const cols=Object.keys(f[0]); L.push("","-- "+t+" ("+f.length+" filas)");
+      f.forEach(r=>L.push(`insert into public.${t} (${cols.map(c=>'"'+c+'"').join(", ")})${CON_IDENTIDAD.includes(t)?" overriding system value":""} values (${cols.map(c=>sqlVal(t,c,r[c])).join(", ")}) on conflict do nothing;`));
+      if(CON_IDENTIDAD.includes(t)) L.push(`select setval(pg_get_serial_sequence('public.${t}','id'), coalesce((select max(id) from public.${t}),1));`); });
+    L.push("","commit;","set session_replication_role = origin;");
+    const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([L.join("\n")],{type:"text/plain"})); a.download="Respaldo_Supabase_MA_"+sello+".sql"; document.body.appendChild(a); a.click(); a.remove();
+    const err=resumen.filter(r=>r.Nota); banner(`✓ Respaldo descargado: Excel y SQL (${resumen.reduce((s,r)=>s+r.Filas,0)} filas en ${TABLAS_SB.length} tablas${archivos.length?", "+archivos.length+" archivos listados":""}).${err.length?" Tablas con problema: "+err.map(r=>esc(r.Tabla)).join(", ")+".":""} Guárdalos en un lugar seguro: tienen datos internos.`,err.length?"":"ok");
+  }catch(e){ banner("No se pudo hacer el respaldo: "+esc(e.message),"err"); }
+  finally{ b.disabled=false; b.textContent=txt; } };
 MA.listo.then(c=>{ CTX=c; cargarUsuarios(); });
 </script>
 </body>
