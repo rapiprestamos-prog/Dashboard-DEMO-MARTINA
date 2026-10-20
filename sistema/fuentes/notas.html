@@ -79,6 +79,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .nt{border-radius:4px 14px 14px 14px;padding:14px 14px 10px;box-shadow:0 6px 16px rgba(15,23,42,.08);cursor:grab;position:relative;display:flex;flex-direction:column;transition:transform .12s, box-shadow .12s}
 .nt:hover{transform:translateY(-2px) rotate(-.3deg);box-shadow:0 12px 24px rgba(15,23,42,.12)}
 .nt.arr{opacity:.4}
+.nt.pend{opacity:.7;pointer-events:none}.guardando{font-size:11px;font-weight:700;color:var(--navy);margin-bottom:4px;display:flex;align-items:center}.guardando .spin{width:12px;height:12px}
 .nt h5{margin:0 22px 6px 0;font-size:14.5px;line-height:1.3}
 .nt .tx{font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
 .nt .ck{display:flex;gap:7px;align-items:flex-start;margin:2px 0;cursor:pointer}
@@ -151,7 +152,7 @@ const nombre=s=>String(s||"").replace(/@.*/,"");
 const etqs=n=>String(n.etiquetas||"").split(/[,;]+/).map(x=>x.trim()).filter(Boolean);
 const fij=n=>String(n.fijada)==="true";
 function toast(t,mal){ const d=document.createElement("div"); d.className="toast"+(mal?" bad":""); d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),mal?6000:2400); }
-let N=[], TK=[], HOJA="", DEMO=false, YO="", VISTA="columnas", Q="", F={}, COLOR_R="amarillo";
+let RAPIDO="", N=[], TK=[], HOJA="", DEMO=false, YO="", VISTA="columnas", Q="", F={}, COLOR_R="amarillo";
 
 /* ============================ datos ============================ */
 async function cargar(){
@@ -162,10 +163,12 @@ async function cargar(){
 }
 async function guardar(n,silencio){
   n=Object.assign({},n); if(!n.tablero) n.tablero=BASE[0];
-  if(DEMO){ if(!n.id){ n.id="n"+Date.now(); n.creado=new Date().toISOString(); n.autor="ejemplo"; } n.actualizado=new Date().toISOString(); const i=N.findIndex(x=>x.id===n.id); i>=0?N[i]=n:N.push(n); pintar(); return; }
-  const prev=N.slice(), i=N.findIndex(x=>x.id===n.id); if(i>=0){ N[i]=n; pintar(); }
-  try{ const r=await GS.llamar("notas.guardar",{nota:n}); const j=N.findIndex(x=>x.id===r.id); j>=0?N[j]=r:N.push(r); pintar(); if(!silencio) toast("Nota guardada"); }
-  catch(e){ N=prev; pintar(); toast("No se guardó la nota: "+e.message,true); }
+  if(DEMO){ if(!n.id){ n.id="n"+Date.now(); n.creado=new Date().toISOString(); n.autor="ejemplo"; } n.actualizado=new Date().toISOString(); const i=N.findIndex(x=>x.id===n.id); i>=0?N[i]=n:N.push(n); pintar(); return true; }
+  const prev=N.slice(), i=N.findIndex(x=>x.id===n.id); let tmp=null;
+  if(i>=0){ N[i]=n; pintar(); }
+  else { tmp="tmp-"+Date.now(); N.push(Object.assign({},n,{id:tmp,_pend:true,autor:YO,creado:new Date().toISOString()})); pintar(); }   // se ve al instante mientras Google guarda
+  try{ const r=await GS.llamar("notas.guardar",{nota:n}); N=N.filter(x=>x.id!==tmp); const j=N.findIndex(x=>x.id===r.id); j>=0?N[j]=r:N.push(r); pintar(); if(!silencio) toast("Nota guardada"); return true; }
+  catch(e){ N=prev; pintar(); toast("No se guardó la nota: "+e.message,true); return false; }
 }
 async function borrar(id){
   if(DEMO){ N=N.filter(x=>x.id!==id); pintar(); return; }
@@ -215,7 +218,10 @@ function pintar(){
   A.querySelectorAll("[data-k]").forEach(k=>k.onclick=()=>{ const v=k.dataset.k; if(v==="todo") F={}; else if(v==="fijadas") F.fijadas=true; else if(v==="rec"){ F.rec=true; } else if(v==="tk"){ F.tk=true; } pintar(); });
   A.querySelectorAll("[data-rc]").forEach(b=>b.onclick=()=>{ COLOR_R=b.dataset.rc; A.querySelectorAll("[data-rc]").forEach(x=>x.setAttribute("aria-pressed",x===b)); });
   $("q").oninput=e=>{ Q=e.target.value; clearTimeout(pintar.t); pintar.t=setTimeout(()=>{ pintar(); const i=$("q"); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },250); };
-  const rapida=()=>{ const t=$("rTxt").value.trim(); if(!t) return; const l=t.split("\n"); const tit=l.length>1&&l[0].length<=70?l.shift():""; guardar({titulo:tit,texto:l.join("\n"),color:COLOR_R,tablero:$("rTab").value,fijada:"false"}); };
+  if(RAPIDO){ $("rTxt").value=RAPIDO; }
+  const rapida=async()=>{ const t=$("rTxt").value.trim(); if(!t){ $("rTxt").focus(); $("rTxt").placeholder="✍ Primero escribe la nota aquí y luego pulsa Agregar"; toast("Escribe la nota primero",true); return; }
+    const l=t.split("\n"); const tit=l.length>1&&l[0].length<=70?l.shift():""; RAPIDO="";
+    const ok=await guardar({titulo:tit,texto:l.join("\n"),color:COLOR_R,tablero:$("rTab").value,fijada:"false"}); if(ok===false){ RAPIDO=t; pintar(); } };
   $("rOk").onclick=rapida; $("rLista").onclick=()=>editor({tablero:$("rTab").value,color:COLOR_R,titulo:$("rTxt").value.trim().split("\n")[0]},{lista:true}); $("rTxt").onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); rapida(); } };
   ({columnas:vColumnas,muro:vMuro,agenda:vAgenda,guia:vGuia})[VISTA](vs);
   $("heroSub").textContent=`${N.length} notas · ${tableros().length} columnas${recHoy?` · ${recHoy} recordatorio(s) para hoy`:""}${DEMO?" · datos de ejemplo":""}`;
@@ -230,7 +236,7 @@ function cuerpo(n){
 }
 function nota(n){
   const tk=n.tarea_id&&TK.find(t=>t.id===n.tarea_id), r=n.recordar?dias(n.recordar):null;
-  return `<div class="nt n-${esc(COLORES.includes(n.color)?n.color:"amarillo")}" draggable="true" data-id="${esc(n.id)}">
+  return `<div class="nt n-${esc(COLORES.includes(n.color)?n.color:"amarillo")}${n._pend?" pend":""}" draggable="${n._pend?"false":"true"}" data-id="${esc(n.id)}">${n._pend?'<span class="guardando"><span class="spin"></span>Guardando…</span>':""}
     <button class="pin${fij(n)?" on":""}" data-pin title="${fij(n)?"Desfijar":"Fijar arriba"}">📌</button>
     ${n.titulo?`<h5>${esc(n.titulo)}</h5>`:""}${cuerpo(n)}
     <div class="pie">${n.recordar?`<span class="rec${r<0?" pas":r===0?" hoy":""}">⏰ ${r===0?"Hoy":fCorta(n.recordar)}</span>`:""}${tk?`<span title="Ligada a la tarea">🔗 ${esc(tk.titulo)}</span>`:""}
