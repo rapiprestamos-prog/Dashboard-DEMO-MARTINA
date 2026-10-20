@@ -109,6 +109,14 @@ button,input,select,textarea{font:inherit;color:inherit}
 .colores{display:flex;gap:8px}.colores button{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer}.colores button[aria-pressed="true"]{border-color:var(--navy)}
 .ayuda{font-size:11.5px;color:var(--muted)}
 .tbn{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 4px}
+.modo{display:inline-flex;gap:4px;background:var(--surface-2);border-radius:10px;padding:3px;margin-bottom:6px;align-self:flex-start}
+.modo button{border:0;background:none;border-radius:8px;padding:6px 12px;font-weight:700;font-size:12.5px;color:var(--text-2);cursor:pointer}
+.modo button[aria-pressed="true"]{background:var(--navy);color:#fff}
+.ckrow{display:flex;align-items:center;gap:8px;margin-bottom:5px}.ckrow input[type=checkbox]{width:18px;height:18px;cursor:pointer;flex:none}
+.ckrow .inp{flex:1;padding:7px 10px}.ckrow .inp.hecho{text-decoration:line-through;color:var(--muted)}
+.ckx{border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:6px}.ckx:hover{background:#fbeceb;color:var(--bad)}
+.ckmas{width:18px;text-align:center;font-weight:800;color:var(--teal);flex:none}
+.addck{display:flex;gap:6px;margin-top:6px}.addck input{flex:1;border:0;border-bottom:1px dashed rgba(15,28,46,.25);background:transparent;font-size:12.5px;padding:4px 2px;outline:none}
 .toast{position:fixed;right:18px;bottom:18px;background:var(--navy-d);color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;z-index:80}
 .toast.bad{background:var(--bad)}
 .spin{display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid #dbe3ee;border-top-color:var(--navy);animation:sp .8s linear infinite;vertical-align:middle;margin-right:6px}
@@ -194,7 +202,7 @@ function pintar(){
     </div>
     <div class="rapida"><textarea id="rTxt" placeholder="✍ Nota rápida… (Enter para guardar · Shift+Enter nueva línea · empieza una línea con [ ] para hacer una casilla)"></textarea>
       <div class="op"><select class="inp" id="rTab" style="padding:7px 9px">${tableros().map(t=>`<option>${esc(t)}</option>`).join("")}</select>
-        ${COLORES.map(c=>`<button class="pt n-${c}" data-rc="${c}" aria-pressed="${COLOR_R===c}" title="${c}"></button>`).join("")}<button class="btn pri sm" id="rOk">Agregar</button></div></div>
+        ${COLORES.map(c=>`<button class="pt n-${c}" data-rc="${c}" aria-pressed="${COLOR_R===c}" title="${c}"></button>`).join("")}<button class="btn pri sm" id="rOk">Agregar</button><button class="btn sm" id="rLista" title="Nueva nota con casillas">☑ Lista</button></div></div>
     <div class="tabs">${[["columnas","🗂 Columnas"],["muro","🧱 Muro"],["agenda","⏰ Recordatorios"],["guia","💡 Guía y prompt"]].map(([k,l])=>`<button class="tab" data-v="${k}" aria-selected="${VISTA===k}">${l}</button>`).join("")}</div>
     <div id="vista"></div>`;
   if(DEMO) GS.avisoDemo($("app"),()=>{ DEMO=false; arrancar(); });
@@ -208,7 +216,7 @@ function pintar(){
   A.querySelectorAll("[data-rc]").forEach(b=>b.onclick=()=>{ COLOR_R=b.dataset.rc; A.querySelectorAll("[data-rc]").forEach(x=>x.setAttribute("aria-pressed",x===b)); });
   $("q").oninput=e=>{ Q=e.target.value; clearTimeout(pintar.t); pintar.t=setTimeout(()=>{ pintar(); const i=$("q"); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },250); };
   const rapida=()=>{ const t=$("rTxt").value.trim(); if(!t) return; const l=t.split("\n"); const tit=l.length>1&&l[0].length<=70?l.shift():""; guardar({titulo:tit,texto:l.join("\n"),color:COLOR_R,tablero:$("rTab").value,fijada:"false"}); };
-  $("rOk").onclick=rapida; $("rTxt").onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); rapida(); } };
+  $("rOk").onclick=rapida; $("rLista").onclick=()=>editor({tablero:$("rTab").value,color:COLOR_R,titulo:$("rTxt").value.trim().split("\n")[0]},{lista:true}); $("rTxt").onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); rapida(); } };
   ({columnas:vColumnas,muro:vMuro,agenda:vAgenda,guia:vGuia})[VISTA](vs);
   $("heroSub").textContent=`${N.length} notas · ${tableros().length} columnas${recHoy?` · ${recHoy} recordatorio(s) para hoy`:""}${DEMO?" · datos de ejemplo":""}`;
 }
@@ -218,7 +226,7 @@ function cuerpo(n){
   const lineas=String(n.texto||"").split("\n"); let html="", hay=false;
   lineas.forEach((l,i)=>{ const m=l.match(/^\s*\[( |x|X)\]\s?(.*)$/); if(m){ hay=true; const h=/x/i.test(m[1]); html+=`<label class="ck${h?" hecho":""}" data-i="${i}"><input type="checkbox"${h?" checked":""}><span>${esc(m[2])}</span></label>`; } else html+=esc(l)+"\n"; });
   const m=String(n.texto||"").match(/^\s*\[( |x|X)\]/gm)||[], h=m.filter(x=>/x/i.test(x)).length;
-  return `<div class="tx">${html.replace(/\n+$/,"")}</div>${hay?`<div class="pr" title="${h} de ${m.length}"><i style="width:${100*h/m.length}%"></i></div>`:""}`;
+  return `<div class="tx">${html.replace(/\n+$/,"")}</div>${hay?`<div class="pr" title="${h} de ${m.length}"><i style="width:${100*h/m.length}%"></i></div><div class="addck"><input placeholder="＋ agregar casilla (Enter)" data-addck></div>`:""}`;
 }
 function nota(n){
   const tk=n.tarea_id&&TK.find(t=>t.id===n.tarea_id), r=n.recordar?dias(n.recordar):null;
@@ -231,7 +239,10 @@ function nota(n){
 }
 function enganchar(V){
   V.querySelectorAll(".nt").forEach(el=>{ const n=N.find(x=>x.id===el.dataset.id);
-    el.onclick=e=>{ const et=e.target.closest("[data-etq]"); if(et){ F.etq=et.dataset.etq; pintar(); return; }
+    const ad=el.querySelector("[data-addck]"); if(ad){ ad.onkeydown=e=>{ if(e.key!=="Enter") return; e.preventDefault(); const v=ad.value.trim(); if(!v) return;
+        guardar(Object.assign({},n,{texto:String(n.texto||"").replace(/\s+$/,"")+"\n[ ] "+v}),true); };
+      ad.onmousedown=e=>e.stopPropagation(); }
+    el.onclick=e=>{ if(e.target.closest("[data-addck]")) return; const et=e.target.closest("[data-etq]"); if(et){ F.etq=et.dataset.etq; pintar(); return; }
       if(e.target.closest("[data-pin]")){ guardar(Object.assign({},n,{fijada:fij(n)?"false":"true"}),true); return; }
       const ck=e.target.closest(".ck"); if(ck){ e.preventDefault(); const ls=String(n.texto||"").split("\n"), i=+ck.dataset.i; ls[i]=ls[i].replace(/\[( |x|X)\]/,m=>/x/i.test(m)?"[ ]":"[x]"); guardar(Object.assign({},n,{texto:ls.join("\n")}),true); return; }
       editor(n); };
@@ -265,16 +276,19 @@ function vAgenda(vs){
 }
 
 /* ---------- editor ---------- */
-function editor(n){
+function editor(n,op){
   n=Object.assign({color:COLOR_R,tablero:BASE[0],fijada:"false"},n||{});
   const bg=document.createElement("div"); bg.className="bg";
   bg.innerHTML=`<div class="dlg"><div class="dlg-h"><h3>${n.id?"Editar nota":"Nueva nota"}</h3><button class="btn sm" data-x>Cerrar</button></div>
     <div class="dlg-b">
       <label class="f full"><span>Título</span><input class="inp" id="nTit" value="${esc(n.titulo||"")}" placeholder="Opcional"></label>
       <div class="f full"><span>Nota</span>
-        <div class="tbn"><button type="button" class="btn sm" data-fm="ck" title="Convierte la línea (o las líneas marcadas) en casillas">☑ Casillas</button><button type="button" class="btn sm" data-fm="vi" title="Convierte en viñetas">• Viñetas</button><button type="button" class="btn sm" data-fm="nu" title="Convierte en lista numerada">1. Numerada</button><button type="button" class="btn sm" data-fm="no" title="Quita casillas, viñetas y números">✕ Quitar formato</button></div>
-        <textarea class="inp" id="nTxt" placeholder="Escribe aquí… Usa los botones de arriba para casillas, viñetas o lista numerada">${esc(n.texto||"")}</textarea>
-        <span class="ayuda">Escribe una línea por punto, márcalas y pulsa <b>☑ Casillas</b>. Al dar Enter en una lista, la siguiente línea sigue con el mismo formato. Las casillas se marcan con un clic en el tablero.</span></div>
+        <div class="modo"><button type="button" data-modo="texto">📝 Texto</button><button type="button" data-modo="lista">☑ Lista con casillas</button></div>
+        <div id="mTexto"><div class="tbn"><button type="button" class="btn sm" data-fm="vi" title="Pone viñetas a la línea o a las líneas marcadas">• Viñetas</button><button type="button" class="btn sm" data-fm="nu" title="Lista numerada">1. Numerada</button><button type="button" class="btn sm" data-fm="no" title="Quita viñetas y números">✕ Quitar formato</button></div>
+          <textarea class="inp" id="nTxt" placeholder="Escribe aquí…">${esc(n.texto||"")}</textarea></div>
+        <div id="mLista" class="hidden"><div id="ckItems"></div>
+          <div class="ckrow nuevo"><span class="ckmas">＋</span><input class="inp" id="ckNuevo" placeholder="Escribe un punto y pulsa Enter para agregar otro"></div>
+          <span class="ayuda">Enter agrega la casilla · ✕ la quita · marca las hechas aquí o con un clic en el tablero.</span></div></div>
       <div class="f"><span>Color</span><div class="colores">${COLORES.map(c=>`<button type="button" class="n-${c}" data-c="${c}" aria-pressed="${n.color===c}" title="${c}"></button>`).join("")}</div></div>
       <label class="f"><span>Columna</span><input class="inp" id="nTab" list="lTab" value="${esc(n.tablero||BASE[0])}"><datalist id="lTab">${tableros().map(t=>`<option value="${esc(t)}">`).join("")}</datalist></label>
       <label class="f"><span>Etiquetas (separadas por coma)</span><input class="inp" id="nEtq" list="lEtq" value="${esc(n.etiquetas||"")}"><datalist id="lEtq">${[...new Set(N.flatMap(etqs))].map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label>
@@ -287,21 +301,44 @@ function editor(n){
   document.body.appendChild(bg); const g=id=>bg.querySelector("#"+id), cerrar=()=>bg.remove();
   bg.querySelectorAll("[data-x]").forEach(b=>b.onclick=cerrar); bg.onclick=e=>{ if(e.target===bg) cerrar(); };
   let color=n.color; bg.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{ color=b.dataset.c; bg.querySelectorAll("[data-c]").forEach(x=>x.setAttribute("aria-pressed",x===b)); });
-  const leer=()=>Object.assign({},n,{titulo:g("nTit").value.trim(),texto:g("nTxt").value,color,tablero:g("nTab").value.trim()||BASE[0],etiquetas:etqs({etiquetas:g("nEtq").value}).join(", "),recordar:g("nRec").value,tarea_id:g("nTar").value,fijada:g("nPin").checked?"true":"false"});
-  g("nOk").onclick=()=>{ const o=leer(); if(!o.titulo&&!o.texto.trim()){ g("nTxt").focus(); return; } cerrar(); guardar(o); };
+  let textoFinal=()=>g("nTxt").value;
+  const leer=()=>Object.assign({},n,{titulo:g("nTit").value.trim(),texto:textoFinal(),color,tablero:g("nTab").value.trim()||BASE[0],etiquetas:etqs({etiquetas:g("nEtq").value}).join(", "),recordar:g("nRec").value,tarea_id:g("nTar").value,fijada:g("nPin").checked?"true":"false"});
+  g("nOk").onclick=()=>{ const o=leer(); if(!o.titulo&&!o.texto.trim()){ (modo==="lista"?g("ckNuevo"):g("nTxt")).focus(); return; } cerrar(); guardar(o); };
   if(g("nDel")) g("nDel").onclick=()=>{ if(confirm("¿Eliminar esta nota?")){ cerrar(); borrar(n.id); } };
   if(g("nDup")) g("nDup").onclick=()=>{ const o=leer(); ["id","creado","autor","actualizado"].forEach(k=>delete o[k]); o.titulo=(o.titulo||"Nota")+" (copia)"; cerrar(); guardar(o); };
-  // formato de líneas: casillas, viñetas, numerada
-  const ta=g("nTxt"), PRE=/^\s*(\[( |x|X)\]\s?|•\s?|\d+[.)]\s?)/;
+  // ---- modo texto / lista con casillas ----
+  const ta=g("nTxt"), PRE=/^\s*(\[( |x|X)\]\s?|•\s?|\d+[.)]\s?)/, CK=/^\s*\[( |x|X)\]\s?(.*)$/;
+  let modo="texto", items=[];
+  const aItems=t=>String(t||"").split("\n").filter(l=>l.trim()).map(l=>{ const m=l.match(CK); return {h:!!(m&&/x/i.test(m[1])),t:(m?m[2]:l.replace(PRE,"")).trim()}; });
+  const deItems=()=>items.filter(x=>x.t.trim()).map(x=>(x.h?"[x] ":"[ ] ")+x.t.trim()).join("\n");
+  const pintaItems=foco=>{ g("ckItems").innerHTML=items.map((x,i)=>`<div class="ckrow"><input type="checkbox" data-i="${i}"${x.h?" checked":""}><input class="inp${x.h?" hecho":""}" data-t="${i}" value="${esc(x.t)}"><button type="button" class="ckx" data-q="${i}" title="Quitar">✕</button></div>`).join("");
+    g("ckItems").querySelectorAll("[data-i]").forEach(c=>c.onchange=()=>{ items[c.dataset.i].h=c.checked; pintaItems(); });
+    g("ckItems").querySelectorAll("[data-t]").forEach(inp=>{ inp.oninput=()=>items[inp.dataset.t].t=inp.value;
+      inp.onkeydown=e=>{ const i=+inp.dataset.t;
+        if(e.key==="Enter"){ e.preventDefault(); items.splice(i+1,0,{h:false,t:""}); pintaItems(i+1); }
+        else if(e.key==="Backspace"&&!inp.value){ e.preventDefault(); items.splice(i,1); pintaItems(i>0?i-1:"nuevo"); } }; });
+    g("ckItems").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{ items.splice(+b.dataset.q,1); pintaItems(); });
+    if(foco==="nuevo") g("ckNuevo").focus(); else if(foco!=null){ const f=g("ckItems").querySelector(`[data-t="${foco}"]`); if(f){ f.focus(); f.setSelectionRange(f.value.length,f.value.length); } } };
+  g("ckNuevo").onkeydown=e=>{ if(e.key!=="Enter") return; e.preventDefault(); const v=g("ckNuevo").value.trim(); if(!v) return; items.push({h:false,t:v}); g("ckNuevo").value=""; pintaItems("nuevo"); };
+  const ponerModo=m=>{ if(m===modo) return;
+    if(m==="lista"){ items=aItems(ta.value); pintaItems(items.length?null:"nuevo"); if(items.length) g("ckNuevo").focus(); }
+    else { const pend=g("ckNuevo").value.trim(); if(pend){ items.push({h:false,t:pend}); g("ckNuevo").value=""; } ta.value=deItems(); ta.focus(); }
+    modo=m; g("mTexto").classList.toggle("hidden",m!=="texto"); g("mLista").classList.toggle("hidden",m!=="lista");
+    bg.querySelectorAll("[data-modo]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.modo===m)); };
+  bg.querySelectorAll("[data-modo]").forEach(b=>b.onclick=()=>ponerModo(b.dataset.modo));
+  const lineas=String(n.texto||"").split("\n").filter(l=>l.trim());
+  bg.querySelectorAll("[data-modo]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.modo==="texto"));
+  if((lineas.length&&lineas.every(l=>CK.test(l)))||(op&&op.lista)) ponerModo("lista");
+  textoFinal=()=>{ if(modo==="lista"){ const pend=g("ckNuevo").value.trim(); if(pend){ items.push({h:false,t:pend}); g("ckNuevo").value=""; } return deItems(); } return ta.value; };
   bg.querySelectorAll("[data-fm]").forEach(b=>b.onclick=()=>{
     const v=ta.value, a=v.lastIndexOf("\n",ta.selectionStart-1)+1, fin=v.indexOf("\n",Math.max(ta.selectionEnd-(ta.selectionEnd>ta.selectionStart&&v[ta.selectionEnd-1]==="\n"?1:0),ta.selectionStart)), z=fin<0?v.length:fin;
     let k=0; const ls=v.slice(a,z).split("\n").map(l=>{ const t=l.replace(PRE,""); if(b.dataset.fm==="no") return t; if(!t.trim()&&l.trim()==="") return l; k++;
-      return (b.dataset.fm==="ck"?"[ ] ":b.dataset.fm==="vi"?"• ":k+". ")+t; });
+      return (b.dataset.fm==="vi"?"• ":k+". ")+t; });
     const nuevo=ls.join("\n"); ta.value=v.slice(0,a)+nuevo+v.slice(z); ta.focus(); ta.setSelectionRange(a,a+nuevo.length); });
   ta.addEventListener("keydown",e=>{ if(e.key!=="Enter"||e.shiftKey) return;
     const v=ta.value, p=ta.selectionStart, a=v.lastIndexOf("\n",p-1)+1, linea=v.slice(a,p), m=linea.match(PRE); if(!m) return;
     e.preventDefault();
-    if(!linea.replace(PRE,"").trim()){ ta.value=v.slice(0,a)+v.slice(p); ta.setSelectionRange(a,a); return; }   // Enter en línea vacía: termina la lista
+    if(!linea.replace(PRE,"").trim()){ ta.value=v.slice(0,a)+v.slice(p); ta.setSelectionRange(a,a); return; }
     let pre=/^\s*\[/.test(m[0])?"[ ] ":/•/.test(m[0])?"• ":(parseInt(m[0])+1)+". ";
     ta.value=v.slice(0,p)+"\n"+pre+v.slice(ta.selectionEnd); ta.setSelectionRange(p+1+pre.length,p+1+pre.length); });
   (n.id?g("nTxt"):g("nTit")).focus();
