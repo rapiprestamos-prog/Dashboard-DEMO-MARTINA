@@ -148,7 +148,10 @@ function bitacora_(accion, b, yo) {
     const t = Object.assign({}, b.tarea || {});
     if (!t.titulo) throw new Error('La tarea necesita un título.');
     const antes = t.id ? leer_('Tareas').filter(x => String(x.id) === String(t.id))[0] : null;
-    if (!t.id) { t.id = Utilities.getUuid(); t.creado = ahora_(); t.creado_por = yo.email; }
+    // la página manda su propio id: si Google reintenta el pedido, se actualiza la misma fila (nunca duplica)
+    if (!t.id) t.id = Utilities.getUuid();
+    if (antes) { if (!t.creado) t.creado = antes.creado; if (!t.creado_por) t.creado_por = antes.creado_por; }
+    else if (!t.creado) { t.creado = ahora_(); t.creado_por = yo.email; }
     t.actualizado = ahora_(); t.actualizado_por = yo.email;
     if (t.estado === 'Hecha' && !t.cerrado) t.cerrado = ahora_().slice(0, 10);
     if (t.estado !== 'Hecha') t.cerrado = '';
@@ -170,13 +173,17 @@ function bitacora_(accion, b, yo) {
   }
   if (accion === 'comentar') {
     if (!b.tarea_id || !String(b.texto || '').trim()) throw new Error('Escribe el comentario.');
-    return guardar_('Comentarios', { id: Utilities.getUuid(), tarea_id: b.tarea_id, texto: String(b.texto).trim(), autor: yo.email, creado: ahora_() });
+    return guardar_('Comentarios', { id: b.id || Utilities.getUuid(), tarea_id: b.tarea_id, texto: String(b.texto).trim(), autor: yo.email, creado: ahora_() });
   }
   if (accion === 'borrarComentario') return borrar_('Comentarios', b.id);
   if (accion === 'borrarTarea') return borrar_('Tareas', b.id);
   if (accion === 'guardarNota') {
     const n = Object.assign({}, b.nota || {});
-    if (!n.id) { n.id = Utilities.getUuid(); n.creado = ahora_(); n.autor = yo.email; }
+    if (!n.id) n.id = Utilities.getUuid();
+    const ya = leer_('Notas').filter(x => String(x.id) === String(n.id))[0];
+    if (ya) { if (!n.creado) n.creado = ya.creado; if (!n.autor) n.autor = ya.autor; }
+    if (!n.creado) n.creado = ahora_();
+    if (!n.autor) n.autor = yo.email;
     n.actualizado = ahora_();
     return guardar_('Notas', n);
   }
@@ -188,6 +195,7 @@ function bitacora_(accion, b, yo) {
 function notas_(accion, b, yo) {
   if (accion === 'listar') return { notas: leer_('Notas'), tareas: leer_('Tareas').filter(t => t.estado !== 'Hecha').map(t => ({ id: t.id, titulo: t.titulo })), hoja: SpreadsheetApp.getActive().getUrl() };
   if (accion === 'guardar') return bitacora_('guardarNota', b, yo);
+  if (accion === 'crearTarea') return bitacora_('guardarTarea', { tarea: b.tarea }, yo);   // «convertir en tarea» y pendientes del acta
   if (accion === 'borrar') return borrar_('Notas', b.id);
   throw new Error('Acción desconocida');
 }
