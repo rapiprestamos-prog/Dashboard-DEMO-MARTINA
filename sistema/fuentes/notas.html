@@ -108,6 +108,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .f textarea{min-height:170px;resize:vertical;line-height:1.5}
 .colores{display:flex;gap:8px}.colores button{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer}.colores button[aria-pressed="true"]{border-color:var(--navy)}
 .ayuda{font-size:11.5px;color:var(--muted)}
+.tbn{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 4px}
 .toast{position:fixed;right:18px;bottom:18px;background:var(--navy-d);color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;z-index:80}
 .toast.bad{background:var(--bad)}
 .spin{display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid #dbe3ee;border-top-color:var(--navy);animation:sp .8s linear infinite;vertical-align:middle;margin-right:6px}
@@ -270,8 +271,10 @@ function editor(n){
   bg.innerHTML=`<div class="dlg"><div class="dlg-h"><h3>${n.id?"Editar nota":"Nueva nota"}</h3><button class="btn sm" data-x>Cerrar</button></div>
     <div class="dlg-b">
       <label class="f full"><span>Título</span><input class="inp" id="nTit" value="${esc(n.titulo||"")}" placeholder="Opcional"></label>
-      <label class="f full"><span>Nota</span><textarea class="inp" id="nTxt" placeholder="Escribe aquí… Para una lista de pendientes empieza cada línea con [ ]">${esc(n.texto||"")}</textarea>
-        <span class="ayuda">Truco: <b>[ ]</b> al inicio de una línea crea una casilla que se marca con un clic en el tablero.</span></label>
+      <div class="f full"><span>Nota</span>
+        <div class="tbn"><button type="button" class="btn sm" data-fm="ck" title="Convierte la línea (o las líneas marcadas) en casillas">☑ Casillas</button><button type="button" class="btn sm" data-fm="vi" title="Convierte en viñetas">• Viñetas</button><button type="button" class="btn sm" data-fm="nu" title="Convierte en lista numerada">1. Numerada</button><button type="button" class="btn sm" data-fm="no" title="Quita casillas, viñetas y números">✕ Quitar formato</button></div>
+        <textarea class="inp" id="nTxt" placeholder="Escribe aquí… Usa los botones de arriba para casillas, viñetas o lista numerada">${esc(n.texto||"")}</textarea>
+        <span class="ayuda">Escribe una línea por punto, márcalas y pulsa <b>☑ Casillas</b>. Al dar Enter en una lista, la siguiente línea sigue con el mismo formato. Las casillas se marcan con un clic en el tablero.</span></div>
       <div class="f"><span>Color</span><div class="colores">${COLORES.map(c=>`<button type="button" class="n-${c}" data-c="${c}" aria-pressed="${n.color===c}" title="${c}"></button>`).join("")}</div></div>
       <label class="f"><span>Columna</span><input class="inp" id="nTab" list="lTab" value="${esc(n.tablero||BASE[0])}"><datalist id="lTab">${tableros().map(t=>`<option value="${esc(t)}">`).join("")}</datalist></label>
       <label class="f"><span>Etiquetas (separadas por coma)</span><input class="inp" id="nEtq" list="lEtq" value="${esc(n.etiquetas||"")}"><datalist id="lEtq">${[...new Set(N.flatMap(etqs))].map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label>
@@ -288,6 +291,19 @@ function editor(n){
   g("nOk").onclick=()=>{ const o=leer(); if(!o.titulo&&!o.texto.trim()){ g("nTxt").focus(); return; } cerrar(); guardar(o); };
   if(g("nDel")) g("nDel").onclick=()=>{ if(confirm("¿Eliminar esta nota?")){ cerrar(); borrar(n.id); } };
   if(g("nDup")) g("nDup").onclick=()=>{ const o=leer(); ["id","creado","autor","actualizado"].forEach(k=>delete o[k]); o.titulo=(o.titulo||"Nota")+" (copia)"; cerrar(); guardar(o); };
+  // formato de líneas: casillas, viñetas, numerada
+  const ta=g("nTxt"), PRE=/^\s*(\[( |x|X)\]\s?|•\s?|\d+[.)]\s?)/;
+  bg.querySelectorAll("[data-fm]").forEach(b=>b.onclick=()=>{
+    const v=ta.value, a=v.lastIndexOf("\n",ta.selectionStart-1)+1, fin=v.indexOf("\n",Math.max(ta.selectionEnd-(ta.selectionEnd>ta.selectionStart&&v[ta.selectionEnd-1]==="\n"?1:0),ta.selectionStart)), z=fin<0?v.length:fin;
+    let k=0; const ls=v.slice(a,z).split("\n").map(l=>{ const t=l.replace(PRE,""); if(b.dataset.fm==="no") return t; if(!t.trim()&&l.trim()==="") return l; k++;
+      return (b.dataset.fm==="ck"?"[ ] ":b.dataset.fm==="vi"?"• ":k+". ")+t; });
+    const nuevo=ls.join("\n"); ta.value=v.slice(0,a)+nuevo+v.slice(z); ta.focus(); ta.setSelectionRange(a,a+nuevo.length); });
+  ta.addEventListener("keydown",e=>{ if(e.key!=="Enter"||e.shiftKey) return;
+    const v=ta.value, p=ta.selectionStart, a=v.lastIndexOf("\n",p-1)+1, linea=v.slice(a,p), m=linea.match(PRE); if(!m) return;
+    e.preventDefault();
+    if(!linea.replace(PRE,"").trim()){ ta.value=v.slice(0,a)+v.slice(p); ta.setSelectionRange(a,a); return; }   // Enter en línea vacía: termina la lista
+    let pre=/^\s*\[/.test(m[0])?"[ ] ":/•/.test(m[0])?"• ":(parseInt(m[0])+1)+". ";
+    ta.value=v.slice(0,p)+"\n"+pre+v.slice(ta.selectionEnd); ta.setSelectionRange(p+1+pre.length,p+1+pre.length); });
   (n.id?g("nTxt"):g("nTit")).focus();
 }
 
