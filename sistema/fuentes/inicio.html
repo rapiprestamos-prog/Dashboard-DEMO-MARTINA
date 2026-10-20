@@ -29,10 +29,9 @@ button{font-family:inherit}
 .home-hdr h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.015em}
 .home-hdr p{margin:6px 0 0;font-size:13.5px;opacity:.8;max-width:640px;line-height:1.55}
 .home-bar{height:4px;border-radius:999px;margin-top:20px;background:linear-gradient(90deg,var(--gold),#7dd3fc 45%,rgba(255,255,255,.15))}
-.aviso-pro{display:flex;gap:14px;align-items:flex-start;background:#fdecec;border:2px solid #c0392b;border-left-width:6px;border-radius:14px;padding:16px 20px;margin:0 0 16px;color:#5c1712;box-shadow:0 4px 14px rgba(192,57,43,.12)}
-.aviso-pro .ap-ic{flex:none;width:34px;height:34px;border-radius:50%;background:#c0392b;color:#fff;display:grid;place-items:center;font-size:17px;font-weight:800}
-.aviso-pro b{color:#8e1b12}.aviso-pro .ap-tx>b{display:block;font-size:15.5px;margin-bottom:4px;color:#a3241a}
-.aviso-pro p{margin:4px 0 0;font-size:13.5px;line-height:1.55}
+.aviso-pro{display:flex;gap:10px;align-items:center;background:#fdecec;border:1px solid #e3a59f;border-left:4px solid #c0392b;border-radius:10px;padding:8px 14px;margin:0 0 12px;color:#5c1712;font-size:12.5px;line-height:1.45}
+.aviso-pro .ap-ic{flex:none;width:22px;height:22px;border-radius:50%;background:#c0392b;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:800}
+.aviso-pro b{color:#a3241a}
 .search-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-bottom:24px;box-shadow:var(--shadow)}
 .search-count{font-weight:700;font-size:13.5px;color:var(--text-2);white-space:nowrap}
 .search-box{flex:1;display:flex;align-items:center;gap:9px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:9px 12px}
@@ -329,12 +328,8 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
     <div class="home-user" id="homeUser"><span id="homeUserTxt"></span><button class="hbtn hidden" id="btnInstalarHome" title="Instalar el dashboard como app: así no vuelve a pedir las carpetas">⬇ Instalar app</button><a class="hbtn" id="btnUsuariosHome" href="usuarios.html" title="Usuarios y permisos (administradora)" style="text-decoration:none">👥 Usuarios</a><button class="hbtn hidden" id="btnSalirHome" title="Cerrar sesión">⎋ Salir</button></div>
     <img class="home-mark" src="__LOGO_MYA__" alt="M&amp;A Capital Inc">
   </div>
-  <div class="aviso-pro" role="note">
-    <div class="ap-ic">★</div>
-    <div class="ap-tx"><b>Versión profesional disponible para instalar en Windows</b>
-      <p>Javier tiene una versión más profesional de este dashboard: un <b>instalador MSI</b> que se instala <b>sin pedir permisos</b> y <b>detecta las carpetas automáticamente</b>. Funciona igual que la versión local que ya tiene en uso, actualizada al <b>19 de octubre de 2026</b>.</p>
-      <p><b>Requisito:</b> las carpetas deben llevar <b>los nombres exactos</b> y estar organizadas <b>por año y, dentro de cada año, por mes</b>.</p></div>
-  </div>
+  <div class="aviso-pro" role="note"><span class="ap-ic">★</span>
+    <span><b>Versión profesional:</b> Javier tiene una versión más profesional de este dashboard, un <b>instalador MSI</b> que no pide permisos y <b>detecta las carpetas automáticamente</b>, igual que la versión local que ya tiene en uso (actualizada al 19 de octubre de 2026). <b>Requisito:</b> carpetas con los <b>nombres exactos</b>, organizadas por <b>año y mes</b>.</span></div>
   <div class="search-card">
     <span class="search-count" id="homeCount"></span>
     <div class="search-box">
