@@ -29,6 +29,10 @@ button{font-family:inherit}
 .home-hdr h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.015em}
 .home-hdr p{margin:6px 0 0;font-size:13.5px;opacity:.8;max-width:640px;line-height:1.55}
 .home-bar{height:4px;border-radius:999px;margin-top:20px;background:linear-gradient(90deg,var(--gold),#7dd3fc 45%,rgba(255,255,255,.15))}
+.aviso-pro{display:flex;gap:14px;align-items:flex-start;background:#fdecec;border:2px solid #c0392b;border-left-width:6px;border-radius:14px;padding:16px 20px;margin:0 0 16px;color:#5c1712;box-shadow:0 4px 14px rgba(192,57,43,.12)}
+.aviso-pro .ap-ic{flex:none;width:34px;height:34px;border-radius:50%;background:#c0392b;color:#fff;display:grid;place-items:center;font-size:17px;font-weight:800}
+.aviso-pro b{color:#8e1b12}.aviso-pro .ap-tx>b{display:block;font-size:15.5px;margin-bottom:4px;color:#a3241a}
+.aviso-pro p{margin:4px 0 0;font-size:13.5px;line-height:1.55}
 .search-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-bottom:24px;box-shadow:var(--shadow)}
 .search-count{font-weight:700;font-size:13.5px;color:var(--text-2);white-space:nowrap}
 .search-box{flex:1;display:flex;align-items:center;gap:9px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:9px 12px}
@@ -325,6 +329,12 @@ tr.det td{background:#f6f8fb!important;padding:8px 14px 12px}
     <div class="home-user" id="homeUser"><span id="homeUserTxt"></span><button class="hbtn hidden" id="btnInstalarHome" title="Instalar el dashboard como app: así no vuelve a pedir las carpetas">⬇ Instalar app</button><a class="hbtn" id="btnUsuariosHome" href="usuarios.html" title="Usuarios y permisos (administradora)" style="text-decoration:none">👥 Usuarios</a><button class="hbtn hidden" id="btnSalirHome" title="Cerrar sesión">⎋ Salir</button></div>
     <img class="home-mark" src="__LOGO_MYA__" alt="M&amp;A Capital Inc">
   </div>
+  <div class="aviso-pro" role="note">
+    <div class="ap-ic">★</div>
+    <div class="ap-tx"><b>Versión profesional disponible para instalar en Windows</b>
+      <p>Javier Romero tiene lista una versión más completa de este dashboard: un <b>instalador MSI</b> que se instala <b>sin pedir permisos</b> y <b>detecta las carpetas automáticamente</b>. Funciona igual que la versión local que ya tiene en uso, actualizada al <b>19 de octubre de 2026</b>.</p>
+      <p><b>Requisito:</b> las carpetas deben llevar <b>los nombres exactos</b> y estar organizadas <b>por año y, dentro de cada año, por mes</b>.</p></div>
+  </div>
   <div class="search-card">
     <span class="search-count" id="homeCount"></span>
     <div class="search-box">
@@ -424,8 +434,16 @@ MA.opcional().then(c=>{
   contarModulos();
   if(!n){ const v=document.createElement("div"); v.className="empty"; v.innerHTML="<div class='big'>🔒</div><b>No tienes módulos asignados</b>Pídele a la administradora que te asigne uno."; $("secciones").appendChild(v); }
 });
-const instBtn=()=>$("btnInstalarHome").classList.toggle("hidden",!(MA.instalable&&MA.instalable()));
-$("btnInstalarHome").onclick=()=>MA.instalar(); document.addEventListener("ma-instalable",instBtn); instBtn();
+const instBtn=()=>$("btnInstalarHome").classList.toggle("hidden",!!(MA.esApp&&MA.esApp()));
+$("btnInstalarHome").onclick=async()=>{ if(MA.instalable&&MA.instalable()){ MA.instalar(); return; } ayudaInstalar(); };
+function ayudaInstalar(){ const d=document.createElement("div"); d.style.cssText="position:fixed;inset:0;background:rgba(15,28,46,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:16px";
+  d.innerHTML=`<div style="background:#fff;border-radius:16px;max-width:520px;padding:22px 24px;box-shadow:0 20px 60px rgba(15,23,42,.35);font-size:14px;line-height:1.6;color:#0f1c2e"><b style="font-size:16px">Instalar el dashboard como app</b>
+    <p style="margin:10px 0 6px">Si no apareció la ventana de instalación:</p>
+    <ul style="margin:0 0 10px;padding-left:20px"><li><b>Chrome:</b> menú <b>⋮</b> › <b>Transmitir, guardar y compartir</b> › <b>Instalar página como app</b>.</li><li><b>Edge:</b> menú <b>⋯</b> › <b>Aplicaciones</b> › <b>Instalar este sitio como aplicación</b>.</li></ul>
+    <p style="margin:0 0 14px;color:#5a687e">Si ya está instalada, ábrela desde el ícono <b>M&amp;A</b> del escritorio o del menú Inicio.</p>
+    <div style="text-align:right"><button style="padding:9px 16px;border-radius:10px;border:0;background:#1b3a5c;color:#fff;font-weight:700;cursor:pointer">Entendido</button></div></div>`;
+  d.onclick=e=>{ if(e.target===d||e.target.tagName==="BUTTON") d.remove(); }; document.body.appendChild(d); }
+document.addEventListener("ma-instalable",instBtn); instBtn();
 try{ sessionStorage.removeItem("ma-msg"); }catch(e){}
 </script>
 </body>
