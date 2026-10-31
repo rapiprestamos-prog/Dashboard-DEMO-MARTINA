@@ -169,6 +169,20 @@ table.x td.rn,table.x th.rn{position:sticky;left:0;z-index:1;width:44px;min-widt
 table.x th.rn{z-index:3;background:var(--navy-d);color:rgba(255,255,255,.6)}
 table.x td.neg{color:var(--bad)}
 table.x tr.totrow td{font-weight:700;background:#eef2f7!important;border-top:2px solid var(--navy)}
+/* Historial de cargas */
+.hist-wrap{padding:16px 18px}
+.hist-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.hist-top h2{margin:0 0 4px;font-size:17px;font-weight:800}
+.hist-top p{margin:0;color:var(--text-2);font-size:12.5px;max-width:760px;line-height:1.5}
+table.x.hist td{white-space:normal;vertical-align:top;max-width:none;padding:8px 10px}
+table.x.hist td.f{white-space:nowrap}
+.hist .cam{font-size:12px;line-height:1.5}.hist .cam b{font-weight:700}
+.hist .cam .n{color:#155a35}.hist .cam .c{color:#6b4d12}.hist .cam .q{color:#7c2620}
+.hist details summary{cursor:pointer;color:var(--text-2);font-size:12px}
+.hist details div{font-size:11.5px;color:var(--text-2);padding-left:10px}
+.hist .est{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+.hist .est.act{background:#e9f6ef;color:#155a35}.hist .est.ver{background:#fdf6e6;color:#6b4d12}
+table.x.hist tr.viendo td{background:#fff8e6!important}
 .more{padding:10px 18px;font-size:12px;color:var(--muted);border-top:1px solid var(--border)}
 
 /* ---------- Pantera ---------- */
@@ -821,6 +835,7 @@ window.MA=(function(){
       <button class="mtab" data-tab="lector" aria-selected="true">📁 Lector de carpeta <span class="cnt" id="cntArchivos">0</span></button>
       <button class="mtab" data-tab="pantera" aria-selected="false">🐆 Reportería Pantera</button>
       <button class="mtab" data-tab="mapa" aria-selected="false">🗺 Mapa del portafolio</button>
+      <button class="mtab" data-tab="historial" aria-selected="false">🕘 Historial</button>
     </div>
     <div class="hbtns">
       <button class="hbtn pri" id="btnActualizar" disabled>↻ Actualizar</button>
@@ -869,6 +884,16 @@ window.MA=(function(){
     </section>
 
     <!-- ---------- Pestaña: Mapa del portafolio (se lee de la carpeta) ---------- -->
+    <!-- ---------- Pestaña: Historial de cargas ---------- -->
+    <section id="tab-historial" class="hidden">
+      <div class="panel hist-wrap">
+        <div class="hist-top"><div><h2>Historial de cargas</h2>
+          <p>Cada vez que cambian los Excel de la carpeta <b>PruebaDashboard</b>, queda aquí quién lo detectó, cuándo y qué archivos entraron, cambiaron o salieron, con una copia de los datos del reporte de ese momento. <b>Ver esta versión</b> vuelve a mostrar la Reportería Pantera como estaba (solo para consultar: los Excel no cambian). Para deshacer un cambio de verdad, restaura la versión anterior del archivo en OneDrive (clic derecho → <b>Historial de versiones</b>).</p></div>
+          <button class="btn sm" id="btnHistRecargar" type="button">↻ Recargar</button></div>
+        <div id="histBox"><div class="empty">Cargando…</div></div>
+      </div>
+    </section>
+
     <section id="tab-mapa" class="hidden">
       <div class="mapa-bar"><span>Pulsa <b>Esc</b> para salir de la pantalla completa.</span><button class="btn gold sm" id="btnMapaFull" type="button">⛶ Ver en pantalla completa</button></div>
       <div class="pframe-wrap" id="mapaWrap">
@@ -928,10 +953,10 @@ const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 
 /* Página propia de Pantera: el inicio, Usuarios y las demás apps son otros HTML. */
 document.body.classList.add("enModulo");
-const TABS=["lector","pantera","mapa"];
+const TABS=["lector","pantera","mapa","historial"];
 /* Dos entradas desde el inicio: "Pantera Reportería" (lector + reportería, sin mapa) y "Mapa del portafolio" (solo el mapa) */
 const MODO=location.hash==="#mapa"?"mapa":"reporte";
-(MODO==="mapa"?["lector","pantera"]:["mapa"]).forEach(t=>{ const b=document.querySelector(`.mtab[data-tab="${t}"]`); if(b) b.classList.add("hidden"); });
+(MODO==="mapa"?["lector","pantera","historial"]:["mapa"]).forEach(t=>{ const b=document.querySelector(`.mtab[data-tab="${t}"]`); if(b) b.classList.add("hidden"); });
 function setTab(t){
   // una pestaña que el rol no tiene (o desconocida) vuelve al lector
   const btn=document.querySelector(`.mtab[data-tab="${t}"]`);
@@ -943,6 +968,7 @@ function setTab(t){
   if(t==="pantera"){ try{ pFrame.contentWindow.dispatchEvent(new Event("resize")); }catch(e){} }
   $("btnInformePDF").classList.toggle("hidden",t!=="pantera");
   if(t==="mapa") cargarMapa();
+  if(t==="historial") renderHistorial();
 }
 /* ---------- Mapa del portafolio: el HTML del mapa vive en GitHub (Pantera-Portfolio-Map.html, junto a esta página).
    Si en la carpeta de OneDrive hay un archivo *map*.html más reciente, ese tiene prioridad. ---------- */
@@ -1384,7 +1410,7 @@ window.addEventListener("message",ev=>{
   const d=ev.data||{};
   if(d.type==="PANTERA_READY"){
     P_LISTO=true; P_READY++;
-    if(P_ENVIANDO && P_READY>=1){ P_ENVIANDO=false; clearTimeout(P_TIMER); pCargando(false); lsSet("martina_pantera_sig",P_SIG); }
+    if(P_ENVIANDO && P_READY>=1){ P_ENVIANDO=false; clearTimeout(P_TIMER); pCargando(false); lsSet("martina_pantera_sig",P_SIG); registrarCarga(P_SIG); }
     else if(P_PENDIENTE){ const p=P_PENDIENTE; P_PENDIENTE=null; enviarPantera(p); }
   }else if(d.type==="PANTERA_LOADED" && d.ok===false){
     P_ENVIANDO=false; clearTimeout(P_TIMER); pCargando(false);
@@ -1393,6 +1419,7 @@ window.addEventListener("message",ev=>{
 });
 let P_PENDIENTE=null;
 async function generarPantera(forzar){
+  if(VIENDO){ avisoVersion(); return; }   // se está viendo una versión anterior: no se toca hasta "Volver a la versión actual"
   const sig=firma();
   if(!forzar && sig===lsGet("martina_pantera_sig")) return;   // ya está armada con estos mismos archivos
   // Siempre se arma desde cero con los archivos que hay ahora: si se borró un mes, desaparece del reporte
@@ -1411,6 +1438,107 @@ function enviarPantera(files){
   clearTimeout(P_TIMER);
   P_TIMER=setTimeout(()=>{ if(P_ENVIANDO){ P_ENVIANDO=false; pCargando(false); } },60000);
 }
+
+/* ============================ Historial de cargas (Supabase: ma_pantera_cargas) ============================
+   Los Excel siguen siendo la fuente: aquí solo se guarda un registro de cada cambio en la carpeta y una copia
+   comprimida de los datos del reporte, para poder volver a verlos. Nada de esto modifica los archivos de OneDrive. */
+const H_TABLA="ma_pantera_cargas", DS_KEY_P="pantera_dashboard_ds_v1";
+let VIENDO=null, H_FILAS=[], H_ERR="";
+const hFecha=t=>t?new Date(t).toLocaleString("es-PA",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+async function gzipB64(txt){
+  const s=new Blob([txt]).stream().pipeThrough(new CompressionStream("gzip"));
+  const u=new Uint8Array(await new Response(s).arrayBuffer());let b="";for(let i=0;i<u.length;i+=0x8000)b+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(b);}
+async function gunzipB64(b64){
+  const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+  return await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text();}
+// Datos que la reportería acaba de armar (los guarda en el navegador o, si no caben, en el nombre del marco)
+function datosReporte(){
+  try{ const t=localStorage.getItem(DS_KEY_P); if(t) return t; }catch(e){}
+  try{ const n=String(pFrame.contentWindow.name||""); if(n.startsWith("PANTERA_DS:")) return n.slice(11); }catch(e){}
+  return null;
+}
+function archivosActuales(){ return ARCHIVOS.map(a=>({ruta:a.ruta,mod:a.mod||0,size:a.size||0})).sort((x,y)=>x.ruta.localeCompare(y.ruta)); }
+function compararArchivos(antes,ahora){
+  const A=new Map((antes||[]).map(a=>[a.ruta,a])),B=new Map(ahora.map(a=>[a.ruta,a]));
+  return {nuevos:ahora.filter(a=>!A.has(a.ruta)).map(a=>a.ruta),
+    cambiados:ahora.filter(a=>A.has(a.ruta)&&(A.get(a.ruta).mod!==a.mod||A.get(a.ruta).size!==a.size)).map(a=>a.ruta),
+    quitados:(antes||[]).filter(a=>!B.has(a.ruta)).map(a=>a.ruta)};
+}
+let H_REGISTRANDO=false;
+async function registrarCarga(sig){
+  if(VIENDO||H_REGISTRANDO||!MA.sb||!SB_USER||!sig||!ARCHIVOS.length) return;
+  H_REGISTRANDO=true;
+  try{
+    const {data:ult,error:e1}=await MA.sb.from(H_TABLA).select("id,firma,archivos").order("creado_en",{ascending:false}).limit(1);
+    if(e1){ H_ERR=e1.message; return; }
+    if(ult&&ult[0]&&ult[0].firma===sig) return;          // esta misma carpeta ya está registrada (por ti o por otra persona)
+    const archivos=archivosActuales(), cambios=compararArchivos(ult&&ult[0]?ult[0].archivos:null,archivos);
+    cambios.primera=!(ult&&ult[0]);
+    const txt=datosReporte(); let D=null; try{ D=txt?JSON.parse(txt):null; }catch(e){}
+    const resumen={leidos:(D&&D.archivos||[]).map(a=>({archivo:a.archivo,tipo:a.tipo,ok:!!a.ok,detalle:a.detalle||""})),
+      meses:D?Object.keys(D.BAL||{}).filter(k=>Object.keys(D.BAL[k]).length).sort():[]};
+    const fila={firma:sig,archivos,cambios,resumen,datos:null};
+    if(txt){ try{ fila.datos=await gzipB64(txt); }catch(e){} }
+    let r=await MA.sb.from(H_TABLA).insert(fila);
+    if(r.error&&fila.datos){ fila.datos=null; fila.resumen.sinCopia="La copia de los datos era demasiado grande para guardarla."; r=await MA.sb.from(H_TABLA).insert(fila); }
+    if(r.error){ H_ERR=r.error.message; return; }
+    H_ERR=""; if(TAB==="historial") renderHistorial();
+  }catch(e){ H_ERR=e.message; }
+  finally{ H_REGISTRANDO=false; }
+}
+function listaCambios(c){
+  if(!c) return "—";
+  if(c.primera) return `<div class="cam"><b>Primera carga registrada</b></div>`;
+  const parte=(arr,cls,txt)=>arr&&arr.length?`<div class="${cls}"><b>${arr.length} ${txt}</b>${arr.length<=4?": "+arr.map(r=>esc(r.split("/").pop())).join(", "):""}</div>`:"";
+  const h=parte(c.nuevos,"n","nuevo(s)")+parte(c.cambiados,"c","modificado(s)")+parte(c.quitados,"q","quitado(s)");
+  const todos=[...(c.nuevos||[]).map(r=>"＋ "+r),...(c.cambiados||[]).map(r=>"✎ "+r),...(c.quitados||[]).map(r=>"－ "+r)];
+  return `<div class="cam">${h||"Sin cambios en los archivos"}</div>`+(todos.length>4?`<details><summary>Ver los ${todos.length} archivos</summary>${todos.map(t=>`<div>${esc(t)}</div>`).join("")}</details>`:"");
+}
+async function renderHistorial(){
+  const box=$("histBox"); if(!box) return;
+  if(!MA.sb||!SB_USER){ box.innerHTML='<div class="empty">Inicia sesión para ver el historial.</div>'; return; }
+  const {data,error}=await MA.sb.from(H_TABLA).select("id,creado_en,usuario,cambios,resumen,tiene_datos").order("creado_en",{ascending:false}).limit(200);
+  if(error){
+    const falta=/does not exist|relation|schema cache|not find/i.test(error.message);
+    box.innerHTML=`<div class="empty"><b>${falta?"Falta activar el historial en Supabase":"No se pudo leer el historial"}</b>${falta?"Hay que correr una vez el archivo <code>sistema/supabase/pantera_historial.sql</code> en Supabase → SQL Editor.":esc(error.message)}</div>`; return; }
+  H_FILAS=data||[];
+  if(!H_FILAS.length){ box.innerHTML=`<div class="empty"><b>Todavía no hay cargas registradas</b>Se registran solas cada vez que cambian los Excel de la carpeta.${H_ERR?"<br><br>Último error al registrar: "+esc(H_ERR):""}</div>`; return; }
+  box.innerHTML=`<div class="tbl-wrap" style="overflow:auto"><table class="x hist"><thead><tr><th>Fecha y hora</th><th>Detectado por</th><th>Qué cambió en la carpeta</th><th>Archivos leídos</th><th>Estado</th><th></th></tr></thead><tbody>`+
+    H_FILAS.map((h,i)=>{const leid=(h.resumen&&h.resumen.leidos)||[],ok=leid.filter(a=>a.ok).length,mes=(h.resumen&&h.resumen.meses)||[];
+      const est=VIENDO&&VIENDO.id===h.id?'<span class="est ver">En pantalla</span>':i===0?'<span class="est act">Actual</span>':"";
+      const acc=!h.tiene_datos?'<span style="color:var(--muted);font-size:11.5px">Sin copia de datos</span>':
+        (VIENDO&&VIENDO.id===h.id)?`<button class="btn sm" data-volver="1" type="button">Volver a la versión actual</button>`:
+        i===0&&!VIENDO?"":`<button class="btn sm${i?" pri":""}" data-ver="${h.id}" type="button">${i?"Ver esta versión":"Ver la actual"}</button>`;
+      return `<tr class="${VIENDO&&VIENDO.id===h.id?"viendo":""}"><td class="f">${esc(hFecha(h.creado_en))}</td><td>${esc(h.usuario||"—")}</td><td>${listaCambios(h.cambios)}</td>
+        <td><div class="cam">${ok} de ${leid.length} reconocidos${mes.length?`<div style="color:var(--text-2)">Meses: ${esc(mes[0])}${mes.length>1?" a "+esc(mes[mes.length-1]):""}</div>`:""}</div>
+        ${leid.length?`<details><summary>Detalle</summary>${leid.map(a=>`<div>${a.ok?"✓":"✗"} ${esc(a.archivo)} — ${esc(a.detalle)}</div>`).join("")}</details>`:""}</td>
+        <td>${est}</td><td>${acc}</td></tr>`;}).join("")+`</tbody></table></div>`;
+  box.querySelectorAll("[data-ver]").forEach(b=>b.onclick=()=>verVersion(+b.dataset.ver));
+  box.querySelectorAll("[data-volver]").forEach(b=>b.onclick=volverActual);
+}
+async function verVersion(id){
+  const h=H_FILAS.find(x=>x.id===id); if(!h) return;
+  if(!confirm(`¿Ver la Reportería Pantera como estaba el ${hFecha(h.creado_en)}?\n\nEs solo para consultar: los Excel de OneDrive no cambian. Para volver, pulsa "Volver a la versión actual".`)) return;
+  pCargando(true,"Abriendo la versión del "+hFecha(h.creado_en)+"…"); setTab("pantera");
+  try{
+    const {data,error}=await MA.sb.from(H_TABLA).select("datos").eq("id",id).single();
+    if(error) throw new Error(error.message); if(!data||!data.datos) throw new Error("esta carga no tiene copia de los datos");
+    const txt=await gunzipB64(data.datos);
+    VIENDO={id,fecha:h.creado_en,usuario:h.usuario};
+    borrarDatosPantera(); clearTimeout(P_TIMER); P_ENVIANDO=false; P_PENDIENTE=null;
+    let enStorage=false; try{ localStorage.setItem(DS_KEY_P,txt); enStorage=true; }catch(e){}
+    const nuevo=document.createElement("iframe"); nuevo.id="panteraFrame"; nuevo.title="Reportería Pantera";
+    if(!enStorage) nuevo.name="PANTERA_DS:"+txt;   // si no cabe en el navegador, la reportería lo lee del nombre del marco
+    pFrame.replaceWith(nuevo); pFrame=nuevo; P_LISTO=false; P_READY=0; cargarMotor();
+    avisoVersion(); setTimeout(()=>pCargando(false),800);
+  }catch(e){ pCargando(false); VIENDO=null; banner("No se pudo abrir esa versión: "+esc(e.message),"err"); }
+}
+function avisoVersion(){
+  if(!VIENDO) return;
+  banner(`<span class="grow">👁 Estás viendo la Reportería Pantera como estaba el <b>${esc(hFecha(VIENDO.fecha))}</b> (detectado por ${esc(VIENDO.usuario||"—")}). Es solo para consultar: los Excel de OneDrive no cambiaron.</span><button class="btn sm pri" type="button" onclick="volverActual()">Volver a la versión actual</button>`,"");
+}
+function volverActual(){ VIENDO=null; banner(""); try{ localStorage.removeItem(DS_KEY_P); }catch(e){} generarPantera(true); if(TAB==="historial") renderHistorial(); }
+$("btnHistRecargar").onclick=renderHistorial;
 
 /* ============================ Informe mensual en PDF ============================
    Un clic: toma lo que muestra la Reportería Pantera (mes y sociedad elegidos) y descarga un PDF
