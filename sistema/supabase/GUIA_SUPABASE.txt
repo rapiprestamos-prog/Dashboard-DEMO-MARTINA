@@ -174,3 +174,20 @@ AGENTE LEGAL (mismo diseño que el de Martina)
   · DASHBOARD CONTABILIDAD y DASHBOARD DE LEGAL: son lectores de carpeta
     (año › mes) como el de Pantera. Vista por año, vista por mes, Excel (XLS,
     XLSX), PDF y Word. No usan IA ni guardan nada en Supabase.
+
+
+=====================================================================
+PANTERA REPORTERÍA — HISTORIAL DE CARGAS (pestaña "🕘 Historial")
+=====================================================================
+Se activa UNA vez: Supabase → SQL Editor → New query → pegar completo
+pantera_historial.sql → Run (debe terminar en "Success").
+
+  · Cada vez que cambian los Excel de PruebaDashboard queda un registro:
+    quién lo detectó, cuándo, qué archivos entraron / cambiaron / salieron
+    y una copia comprimida de los datos del reporte.
+  · "Ver esta versión" muestra la Reportería Pantera como estaba en esa carga
+    (solo consulta). "Volver a la versión actual" regresa a lo que hay en la carpeta.
+  · Los Excel no se tocan: para deshacer un cambio de verdad se restaura la
+    versión anterior del archivo en OneDrive (clic derecho → Historial de versiones).
+  · Ven el historial quienes tienen el módulo "Pantera Reportería — Martina";
+    borrar registros, solo la administradora.
